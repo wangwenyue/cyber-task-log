@@ -176,3 +176,29 @@ html[data-theme="minimal"] dialog label{color:#69736d}html[data-theme="minimal"]
 html[data-theme="minimal"] .auth-gate{background:rgba(246,247,245,.9)}html[data-theme="minimal"] .auth-card>p,html[data-theme="minimal"] .auth-card label,html[data-theme="minimal"] .auth-switch{color:#67716b}html[data-theme="minimal"] .auth-card input{color:#202521;border-color:#d4dad6;background:#fff}html[data-theme="minimal"] .auth-card form button{color:#fff;background:#202521}
 html[data-theme="minimal"] .switch-row{border-color:#dde2de;background:#fafbfa}html[data-theme="minimal"] .switch-row strong{color:#202521}
 @media(max-width:560px){.theme-toggle{min-width:58px;padding:0 8px}.theme-toggle span{font-size:10px}}
+
+/* Ethereal Chinese shanshui theme (replaces the plain minimal treatment) */
+html[data-theme="minimal"]{--bg:#eee9dd;--panel:rgba(255,253,247,.82);--panel-2:rgba(248,246,238,.86);--line:rgba(58,70,62,.24);--text:#202a25;--muted:#69746d;--cyan:#527c6b;--pink:#a7473f;--yellow:#96733f;--danger:#a9363c;--shadow:0 18px 55px rgba(41,53,46,.11)}
+html[data-theme="minimal"] body{position:relative;color:var(--text);background-color:#eee9dd;background-image:linear-gradient(rgba(249,247,240,.2),rgba(238,235,224,.32)),url("assets/shanshui-mist.jpg");background-position:center top;background-size:cover;background-attachment:fixed;background-repeat:no-repeat}
+html[data-theme="minimal"] body::before{content:"";position:fixed;inset:-15%;z-index:0;pointer-events:none;background:radial-gradient(ellipse at 30% 35%,rgba(255,255,255,.82),transparent 34%),radial-gradient(ellipse at 72% 62%,rgba(255,255,255,.66),transparent 31%),linear-gradient(100deg,transparent 30%,rgba(255,255,255,.28) 48%,transparent 67%);filter:blur(22px);animation:shanshuiMist 22s ease-in-out infinite alternate}
+html[data-theme="minimal"] .panel{border-color:rgba(55,68,60,.26);background:linear-gradient(145deg,rgba(255,254,249,.84),rgba(245,244,236,.76));box-shadow:0 15px 48px rgba(43,55,48,.1);backdrop-filter:blur(12px) saturate(.78);-webkit-backdrop-filter:blur(12px) saturate(.78)}
+html[data-theme="minimal"] .panel::before{width:70px;height:2px;background:linear-gradient(90deg,#27342d,rgba(39,52,45,.18),transparent);box-shadow:none}
+html[data-theme="minimal"] .panel-label{color:#4d675b;font-family:"Songti SC","STSong","Noto Serif SC",serif;font-weight:700}
+html[data-theme="minimal"] h1,html[data-theme="minimal"] h2,html[data-theme="minimal"] .calendar-heading strong{font-family:"Songti SC","STSong","Noto Serif SC",serif;font-weight:700;letter-spacing:.01em}
+html[data-theme="minimal"] .brand-mark{color:#fff;background:#9b4138;box-shadow:0 6px 16px rgba(125,45,39,.2)}
+html[data-theme="minimal"] .brand strong{font-family:"Songti SC","STSong","Noto Serif SC",serif;letter-spacing:.16em}
+html[data-theme="minimal"] .theme-toggle{color:#fff;border-color:#526c5f;background:rgba(66,91,78,.92);box-shadow:0 6px 15px rgba(57,78,67,.14)}
+html[data-theme="minimal"] .theme-toggle i{background:#f4eee0;border-color:#f4eee0}
+html[data-theme="minimal"] .theme-toggle:hover{color:#fff;background:#31483d}
+html[data-theme="minimal"] .today-button,html[data-theme="minimal"] .calendar-nav button,html[data-theme="minimal"] .account-button{border-color:rgba(67,82,73,.3);background:rgba(255,254,249,.7)}
+html[data-theme="minimal"] .task-form{background:rgba(255,254,249,.74)}html[data-theme="minimal"] .task-options{background:rgba(246,245,238,.65)}
+html[data-theme="minimal"] .task-entry-row>button{background:#526c5f}html[data-theme="minimal"] .calendar-day.selected{background:#526c5f;border-color:#526c5f}
+html[data-theme="minimal"] .time-wheel{background:rgba(255,254,249,.72)}html[data-theme="minimal"] .wheel-selection{border-color:#789183;background:rgba(137,163,149,.14)}
+html[data-theme="minimal"] .task-form .priority-option.selected{border-color:#526c5f;background:#526c5f}
+html[data-theme="minimal"] .task-item,html[data-theme="minimal"] .history-day,html[data-theme="minimal"] .history-task{background:rgba(255,254,249,.68)}
+html[data-theme="minimal"] dialog{background:rgba(255,254,249,.94);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}html[data-theme="minimal"] dialog::backdrop{background:rgba(224,222,211,.64)}
+html[data-theme="minimal"] .auth-gate{background:rgba(235,232,220,.58);backdrop-filter:blur(14px)}
+html[data-theme="minimal"] .auth-card{background:rgba(255,254,249,.9)}
+@keyframes shanshuiMist{0%{transform:translate3d(-3%,1%,0) scale(1)}100%{transform:translate3d(5%,-2%,0) scale(1.08)}}
+@media(max-width:560px){html[data-theme="minimal"] body{background-image:none}html[data-theme="minimal"] .cyber-flow{display:block;inset:0;filter:none;background:linear-gradient(rgba(249,247,240,.14),rgba(238,235,224,.22)),url("assets/shanshui-mist.jpg") 42% center/cover no-repeat}html[data-theme="minimal"] .cyber-flow>*{display:none}html[data-theme="minimal"] body::before{opacity:.72;filter:blur(18px)}html[data-theme="minimal"] .panel{background:linear-gradient(145deg,rgba(255,254,249,.88),rgba(245,244,236,.82));backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px)}}
+@media(prefers-reduced-motion:reduce){html[data-theme="minimal"] body::before{animation:none!important}}

@@ -60,10 +60,10 @@ function cacheKey() { return `${CACHE_PREFIX}${state.user?.id || 'guest'}`; }
 function applyTheme(theme) {
   const selected = theme === 'minimal' ? 'minimal' : 'cyber';
   document.documentElement.dataset.theme = selected;
-  elements.themeToggle.querySelector('span').textContent = selected === 'cyber' ? '2077' : '简约';
+  elements.themeToggle.querySelector('span').textContent = selected === 'cyber' ? '2077' : '山水';
   elements.themeToggle.setAttribute('aria-pressed', String(selected === 'minimal'));
-  elements.themeToggle.title = selected === 'cyber' ? '当前：赛博朋克 2077，点击切换简约主题' : '当前：简约素白，点击切换赛博朋克主题';
-  elements.themeColor.content = selected === 'cyber' ? '#10141b' : '#f7f7f5';
+  elements.themeToggle.title = selected === 'cyber' ? '当前：赛博朋克 2077，点击切换山水主题' : '当前：云雾山水，点击切换赛博朋克主题';
+  elements.themeColor.content = selected === 'cyber' ? '#10141b' : '#eee9dd';
   try { localStorage.setItem(THEME_STORAGE_KEY, selected); } catch {}
 }
 
