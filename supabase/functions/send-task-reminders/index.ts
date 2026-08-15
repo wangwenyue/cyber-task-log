@@ -14,7 +14,8 @@ type ReminderSetting = {
   last_sent_on: string | null
 }
 
-type Task = { title: string }
+type Task = { title: string; due_time: string | null; priority: 'normal' | 'important' | 'urgent' | 'critical' }
+const priorityLabels = { normal: '普通', important: '重要', urgent: '紧急', critical: '立即处理' }
 
 function localClock(timeZone: string) {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -33,7 +34,7 @@ function escapeHtml(value: string) {
 }
 
 function emailHtml(date: string, tasks: Task[]) {
-  const items = tasks.map((task) => `<li style="margin:0 0 12px;padding:12px 14px;border-left:3px solid #5bf5df;background:#111722;color:#e7f4f2">${escapeHtml(task.title)}</li>`).join('')
+  const items = tasks.map((task) => `<li style="margin:0 0 12px;padding:12px 14px;border-left:3px solid ${task.priority === 'critical' ? '#ff4fa3' : task.priority === 'urgent' ? '#ff9f5b' : '#5bf5df'};background:#111722;color:#e7f4f2"><strong>${escapeHtml(task.title)}</strong><div style="margin-top:7px;color:#778792;font-size:12px">${task.due_time ? `截止 ${task.due_time.slice(0, 5)} · ` : ''}${priorityLabels[task.priority]}</div></li>`).join('')
   return `<!doctype html><html><body style="margin:0;padding:28px;background:#06080d;font-family:Arial,sans-serif;color:#e7f4f2"><div style="max-width:600px;margin:auto;border:1px solid #202b38;background:#0d1119;padding:28px"><div style="color:#5bf5df;font:12px monospace;letter-spacing:2px">NEON LOG // DAILY OPERATIONS</div><h1 style="margin:14px 0 8px;font-size:28px">${date} 今日待办</h1><p style="margin:0 0 24px;color:#778792">你有 ${tasks.length} 项任务等待完成。</p><ul style="list-style:none;margin:0;padding:0">${items}</ul><p style="margin:24px 0 0;color:#778792;font-size:12px">打开 <a href="https://wangwenyue.github.io/cyber-task-log/" style="color:#5bf5df">NEON LOG</a> 更新进度。</p></div></body></html>`
 }
 
@@ -74,7 +75,7 @@ Deno.serve(async (request) => {
     if (!isTest && (clock.time !== setting.reminder_time.slice(0, 5) || setting.last_sent_on === clock.date)) continue
 
     const { data: tasks, error: taskError } = await admin.from('tasks')
-      .select('title').eq('user_id', setting.user_id).eq('task_date', clock.date).eq('completed', false).order('created_at')
+      .select('title,due_time,priority').eq('user_id', setting.user_id).eq('task_date', clock.date).eq('completed', false).order('due_time', { ascending: true, nullsFirst: false })
     if (taskError) { results.push({ userId: setting.user_id, status: 'task_error' }); continue }
 
     if (!tasks?.length && !isTest) {
@@ -82,7 +83,7 @@ Deno.serve(async (request) => {
       results.push({ userId: setting.user_id, status: 'no_tasks' }); continue
     }
 
-    const mailTasks = tasks?.length ? tasks : [{ title: '目前没有未完成任务，今天也要保持节奏。' }]
+    const mailTasks = tasks?.length ? tasks : [{ title: '目前没有未完成任务，今天也要保持节奏。', due_time: null, priority: 'normal' as const }]
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {

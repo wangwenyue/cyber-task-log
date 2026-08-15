@@ -3,6 +3,14 @@ const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_nS9Bu52AEVM2i8kYPnWb0A_yIT4p6XX
 const LEGACY_STORAGE_KEY = 'neon-log-tasks-v1';
 const CACHE_PREFIX = 'neon-log-cloud-cache-';
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+const PRIORITIES = {
+  normal: { label: '普通', weight: 0 }, important: { label: '重要', weight: 1 },
+  urgent: { label: '紧急', weight: 2 }, critical: { label: '立即处理', weight: 3 },
+};
+const TIME_OPTIONS = [null, ...Array.from({ length: 33 }, (_, index) => {
+  const totalMinutes = 7 * 60 + index * 30;
+  return `${String(Math.floor(totalMinutes / 60)).padStart(2, '0')}:${String(totalMinutes % 60).padStart(2, '0')}`;
+})];
 
 const state = {
   tasks: [], user: null, selectedDate: toDateKey(new Date()), calendarDate: startOfMonth(new Date()),
@@ -32,6 +40,8 @@ const elements = {
   reminderTime: document.querySelector('#reminderTime'), reminderTimezone: document.querySelector('#reminderTimezone'),
   reminderStatus: document.querySelector('#reminderStatus'), testEmailButton: document.querySelector('#testEmailButton'),
   signOutButton: document.querySelector('#signOutButton'), closeReminder: document.querySelector('#closeReminder'),
+  createTimeScroll: document.querySelector('#createTimeScroll'), createPriorityPicker: document.querySelector('#createPriorityPicker'),
+  editTimeScroll: document.querySelector('#editTimeScroll'), editPriorityPicker: document.querySelector('#editPriorityPicker'),
 };
 
 function toDateKey(date) {
@@ -56,15 +66,36 @@ function setSyncStatus(status, message) {
 function mapTask(row) {
   return {
     id: row.id, title: row.title, date: row.task_date, completed: row.completed,
+    dueTime: row.due_time ? row.due_time.slice(0, 5) : null, priority: row.priority || 'normal',
     createdAt: new Date(row.created_at).getTime(), completedAt: row.completed_at ? new Date(row.completed_at).getTime() : null,
   };
 }
 
 function loadCache() {
-  try { const value = JSON.parse(localStorage.getItem(cacheKey())); return Array.isArray(value) ? value : []; }
+  try { const value = JSON.parse(localStorage.getItem(cacheKey())); return Array.isArray(value) ? value.map((task) => ({ ...task, dueTime: task.dueTime || null, priority: task.priority || 'normal' })) : []; }
   catch { return []; }
 }
 function saveCache() { if (state.user) localStorage.setItem(cacheKey(), JSON.stringify(state.tasks)); }
+
+function renderTimePicker(container, selected = null) {
+  container.dataset.value = selected || '';
+  container.innerHTML = TIME_OPTIONS.map((time) => `<button class="time-option${time === selected ? ' selected' : ''}" data-value="${time || ''}" type="button" role="radio" aria-checked="${time === selected}">${time || '无截止'}</button>`).join('');
+  requestAnimationFrame(() => container.querySelector('.selected')?.scrollIntoView({ inline: 'center', block: 'nearest' }));
+}
+
+function renderPriorityPicker(container, selected = 'normal') {
+  container.dataset.value = selected;
+  container.innerHTML = Object.entries(PRIORITIES).map(([value, meta]) => `<button class="priority-option${value === selected ? ' selected' : ''}" data-value="${value}" type="button" role="radio" aria-checked="${value === selected}">${meta.label}</button>`).join('');
+}
+
+function bindPicker(container) {
+  container.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-value]'); if (!button) return;
+    container.dataset.value = button.dataset.value;
+    container.querySelectorAll('button').forEach((item) => { const selected = item === button; item.classList.toggle('selected', selected); item.setAttribute('aria-checked', String(selected)); });
+    button.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  });
+}
 
 async function loadCloudTasks({ quiet = false } = {}) {
   if (!state.user) return;
@@ -116,7 +147,13 @@ function renderCalendar() {
 
 function renderTasks() {
   const selected = fromDateKey(state.selectedDate);
-  const all = tasksForDate(state.selectedDate).sort((a, b) => b.createdAt - a.createdAt);
+  const all = tasksForDate(state.selectedDate).sort((a, b) => {
+    const priorityDifference = PRIORITIES[b.priority].weight - PRIORITIES[a.priority].weight;
+    if (priorityDifference) return priorityDifference;
+    if (a.dueTime && b.dueTime) return a.dueTime.localeCompare(b.dueTime);
+    if (a.dueTime) return -1; if (b.dueTime) return 1;
+    return b.createdAt - a.createdAt;
+  });
   const visible = state.showCompleted ? all : all.filter((task) => !task.completed);
   const completedCount = all.filter((task) => task.completed).length;
   const progress = all.length ? Math.round(completedCount / all.length * 100) : 0;
@@ -132,9 +169,9 @@ function renderTasks() {
     return;
   }
   elements.taskList.innerHTML = visible.map((task) => `
-    <article class="task-item ${task.completed ? 'completed' : ''}" data-id="${task.id}">
+    <article class="task-item priority-${task.priority} ${task.completed ? 'completed' : ''}" data-id="${task.id}">
       <button class="check-button" data-action="toggle" type="button" aria-label="${task.completed ? '恢复' : '完成'}任务">✓</button>
-      <div class="task-copy"><strong>${escapeHtml(task.title)}</strong><span>${task.completed ? `COMPLETED // ${formatTime(task.completedAt)}` : `CREATED // ${formatTime(task.createdAt)}`}</span></div>
+      <div class="task-copy"><strong>${escapeHtml(task.title)}</strong><span>${task.completed ? `COMPLETED // ${formatTime(task.completedAt)}` : `CREATED // ${formatTime(task.createdAt)}`}</span><div class="task-meta">${task.dueTime ? `<span class="due-chip">⏱ ${task.dueTime}</span>` : ''}<span class="priority-chip ${task.priority}">${PRIORITIES[task.priority].label}</span></div></div>
       <div class="task-actions"><button data-action="edit" type="button" aria-label="编辑任务">✎</button><button class="delete" data-action="delete" type="button" aria-label="删除任务">×</button></div>
     </article>`).join('');
 }
@@ -150,7 +187,7 @@ function renderHistory() {
   elements.completionStat.textContent = `${recent.length ? Math.round(completed.length / recent.length * 100) : 0}%`;
   elements.historyList.innerHTML = dates.length ? dates.map((key) => {
     const date = fromDateKey(key), tasks = groups[key];
-    return `<article class="history-day"><div class="history-date"><strong>${formatDate(date, { month: '2-digit', day: '2-digit' })}</strong><span>${formatDate(date, { weekday: 'short' })}</span></div><div class="history-tasks">${tasks.map((task) => `<span class="history-task">✓ ${escapeHtml(task.title)}</span>`).join('')}</div><span class="history-count">${tasks.length} DONE</span></article>`;
+    return `<article class="history-day"><div class="history-date"><strong>${formatDate(date, { month: '2-digit', day: '2-digit' })}</strong><span>${formatDate(date, { weekday: 'short' })}</span></div><div class="history-tasks">${tasks.map((task) => `<span class="history-task">✓ ${escapeHtml(task.title)}${task.dueTime ? ` · ${task.dueTime}` : ''} · ${PRIORITIES[task.priority].label}</span>`).join('')}</div><span class="history-count">${tasks.length} DONE</span></article>`;
   }).join('') : '<div class="empty-state"><div><div class="empty-glyph">//</div><strong>ARCHIVE IS EMPTY</strong><span>完成的任务会出现在这里。</span></div></div>';
 }
 
@@ -160,9 +197,9 @@ function selectDate(key) {
   if (innerWidth < 821) document.querySelector('.task-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-async function addTask(title) {
+async function addTask(title, dueTime, priority) {
   setSyncStatus('syncing', 'WRITING TO CLOUD');
-  const { data, error } = await supabaseClient.from('tasks').insert({ user_id: state.user.id, title: title.trim(), task_date: state.selectedDate }).select().single();
+  const { data, error } = await supabaseClient.from('tasks').insert({ user_id: state.user.id, title: title.trim(), task_date: state.selectedDate, due_time: dueTime || null, priority }).select().single();
   if (error) { setSyncStatus('error', 'SYNC FAILED'); showToast(`添加失败：${error.message}`); return false; }
   state.tasks.unshift(mapTask(data)); saveCache(); render(); setSyncStatus('', 'CLOUD SYSTEM ONLINE'); showToast('任务已同步到云端'); return true;
 }
@@ -185,7 +222,9 @@ async function deleteTask(id) {
 
 function openEdit(id) {
   const task = state.tasks.find((item) => item.id === id); if (!task) return;
-  state.editingId = id; elements.editInput.value = task.title; elements.editDialog.showModal(); requestAnimationFrame(() => elements.editInput.select());
+  state.editingId = id; elements.editInput.value = task.title;
+  renderTimePicker(elements.editTimeScroll, task.dueTime); renderPriorityPicker(elements.editPriorityPicker, task.priority);
+  elements.editDialog.showModal(); requestAnimationFrame(() => elements.editInput.select());
 }
 function showToast(message) {
   elements.toast.textContent = message; elements.toast.classList.add('show');
@@ -269,7 +308,11 @@ elements.testEmailButton.addEventListener('click', sendTestEmail);
 elements.signOutButton.addEventListener('click', async () => { elements.reminderDialog.close(); await supabaseClient.auth.signOut(); showToast('已安全退出云端终端'); });
 elements.taskForm.addEventListener('submit', async (event) => {
   event.preventDefault(); const title = elements.taskInput.value.trim(); if (!title || !state.user) return;
-  elements.taskInput.disabled = true; if (await addTask(title)) elements.taskInput.value = ''; elements.taskInput.disabled = false; elements.taskInput.focus();
+  elements.taskInput.disabled = true;
+  if (await addTask(title, elements.createTimeScroll.dataset.value, elements.createPriorityPicker.dataset.value)) {
+    elements.taskInput.value = ''; renderTimePicker(elements.createTimeScroll); renderPriorityPicker(elements.createPriorityPicker);
+  }
+  elements.taskInput.disabled = false; elements.taskInput.focus();
 });
 elements.taskList.addEventListener('click', (event) => {
   const button = event.target.closest('button[data-action]'); if (!button) return;
@@ -286,7 +329,7 @@ document.querySelector('.brand').addEventListener('click', (event) => { event.pr
 document.querySelector('#cancelEdit').addEventListener('click', () => elements.editDialog.close());
 elements.editForm.addEventListener('submit', async (event) => {
   event.preventDefault(); const title = elements.editInput.value.trim(); if (!title) return;
-  const { data, error } = await supabaseClient.from('tasks').update({ title, updated_at: new Date().toISOString() }).eq('id', state.editingId).select().single();
+  const { data, error } = await supabaseClient.from('tasks').update({ title, due_time: elements.editTimeScroll.dataset.value || null, priority: elements.editPriorityPicker.dataset.value, updated_at: new Date().toISOString() }).eq('id', state.editingId).select().single();
   if (error) { showToast(`修改失败：${error.message}`); return; }
   const index = state.tasks.findIndex((task) => task.id === state.editingId); if (index >= 0) state.tasks[index] = mapTask(data);
   saveCache(); elements.editDialog.close(); render(); showToast('修改已同步');
@@ -294,4 +337,6 @@ elements.editForm.addEventListener('submit', async (event) => {
 
 document.addEventListener('visibilitychange', () => { if (!document.hidden && state.user) loadCloudTasks({ quiet: true }); });
 supabaseClient.auth.onAuthStateChange((_event, session) => { setTimeout(() => handleSession(session), 0); });
+bindPicker(elements.createTimeScroll); bindPicker(elements.createPriorityPicker); bindPicker(elements.editTimeScroll); bindPicker(elements.editPriorityPicker);
+renderTimePicker(elements.createTimeScroll); renderPriorityPicker(elements.createPriorityPicker);
 updateAuthUI(); render();

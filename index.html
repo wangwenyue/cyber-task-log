@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#080b12">
   <title>NEON LOG // 每日任务终端</title>
-  <link rel="stylesheet" href="styles.css?v=3.0">
+  <link rel="stylesheet" href="styles.css?v=4.0">
 </head>
 <body>
   <div class="noise" aria-hidden="true"></div>
@@ -57,10 +57,18 @@
         </div>
 
         <form class="task-form" id="taskForm">
-          <label class="sr-only" for="taskInput">添加新任务</label>
-          <span class="prompt">&gt;_</span>
-          <input id="taskInput" maxlength="120" autocomplete="off" placeholder="输入新的工作任务..." required>
-          <button type="submit">添加任务 <span>↵</span></button>
+          <div class="task-entry-row">
+            <label class="sr-only" for="taskInput">添加新任务</label>
+            <span class="prompt">&gt;_</span>
+            <input id="taskInput" maxlength="120" autocomplete="off" placeholder="输入新的工作任务..." required>
+            <button type="submit">添加任务 <span>↵</span></button>
+          </div>
+          <div class="task-options">
+            <div class="option-heading"><span>截止时间</span><small>横向滑动选择</small></div>
+            <div class="time-scroll" id="createTimeScroll" role="radiogroup" aria-label="任务截止时间"></div>
+            <div class="option-heading"><span>紧急程度</span></div>
+            <div class="priority-picker" id="createPriorityPicker" role="radiogroup" aria-label="任务紧急程度"></div>
+          </div>
         </form>
 
         <div class="task-toolbar">
@@ -86,7 +94,7 @@
       <div class="history-list" id="historyList"></div>
     </section>
 
-    <footer><span>NEON LOG v2.0</span><span id="footerStatus">SUPABASE CLOUD SYNC</span></footer>
+    <footer><span>NEON LOG v4.0</span><span id="footerStatus">SUPABASE CLOUD SYNC</span></footer>
   </main>
 
   <section class="auth-gate" id="authGate" aria-labelledby="authTitle">
@@ -107,12 +115,20 @@
     </div>
   </section>
 
-  <dialog id="editDialog">
+  <dialog id="editDialog" class="task-editor-dialog">
     <form method="dialog" id="editForm">
       <div class="panel-label">EDIT OPERATION</div>
       <h2>修改任务</h2>
       <label for="editInput">任务内容</label>
       <input id="editInput" maxlength="120" required>
+      <div class="editor-section">
+        <div class="option-heading"><span>截止时间</span><small>横向滑动选择</small></div>
+        <div class="time-scroll" id="editTimeScroll" role="radiogroup" aria-label="修改截止时间"></div>
+      </div>
+      <div class="editor-section">
+        <div class="option-heading"><span>紧急程度</span></div>
+        <div class="priority-picker" id="editPriorityPicker" role="radiogroup" aria-label="修改紧急程度"></div>
+      </div>
       <div class="dialog-actions">
         <button value="cancel" type="button" id="cancelEdit">取消</button>
         <button value="save" type="submit">保存修改</button>
@@ -147,6 +163,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js?v=3.0"></script>
+  <script src="app.js?v=4.0"></script>
 </body>
 </html>
