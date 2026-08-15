@@ -208,10 +208,10 @@ function renderTasks() {
     return;
   }
   elements.taskList.innerHTML = visible.map((task) => `
-    <article class="task-item priority-${task.priority} ${task.completed ? 'completed' : ''}" data-id="${task.id}">
+    <article class="task-item priority-${task.priority} ${task.completed ? 'completed' : ''}" data-id="${task.id}" role="button" tabindex="0" aria-label="点击修改任务">
       <button class="check-button" data-action="toggle" type="button" aria-label="${task.completed ? '恢复' : '完成'}任务">✓</button>
       <div class="task-copy"><strong>${escapeHtml(task.title)}</strong><span>${task.completed ? `COMPLETED // ${formatTime(task.completedAt)}` : `CREATED // ${formatTime(task.createdAt)}`}</span><div class="task-meta">${task.dueTime ? `<span class="due-chip">⏱ ${task.dueTime}</span>` : ''}<span class="priority-chip ${task.priority}">${PRIORITIES[task.priority].label}</span></div></div>
-      <div class="task-actions"><button data-action="edit" type="button" aria-label="编辑任务">✎</button><button class="delete" data-action="delete" type="button" aria-label="删除任务">×</button></div>
+      <div class="task-actions"><button class="delete" data-action="delete" type="button" aria-label="删除任务">×</button></div>
     </article>`).join('');
 }
 
@@ -354,11 +354,16 @@ elements.taskForm.addEventListener('submit', async (event) => {
   elements.taskInput.disabled = false; elements.taskInput.focus();
 });
 elements.taskList.addEventListener('click', (event) => {
-  const button = event.target.closest('button[data-action]'); if (!button) return;
-  const id = button.closest('.task-item').dataset.id;
-  if (button.dataset.action === 'toggle') toggleTask(id);
-  if (button.dataset.action === 'edit') openEdit(id);
-  if (button.dataset.action === 'delete') deleteTask(id);
+  const item = event.target.closest('.task-item'); if (!item) return;
+  const button = event.target.closest('button[data-action]');
+  if (button?.dataset.action === 'toggle') { toggleTask(item.dataset.id); return; }
+  if (button?.dataset.action === 'delete') { deleteTask(item.dataset.id); return; }
+  openEdit(item.dataset.id);
+});
+elements.taskList.addEventListener('keydown', (event) => {
+  if (!['Enter', ' '].includes(event.key) || event.target.closest('button')) return;
+  const item = event.target.closest('.task-item'); if (!item) return;
+  event.preventDefault(); openEdit(item.dataset.id);
 });
 elements.showCompletedButton.addEventListener('click', () => { state.showCompleted = !state.showCompleted; renderTasks(); });
 document.querySelector('#previousMonth').addEventListener('click', () => { state.calendarDate = new Date(state.calendarDate.getFullYear(), state.calendarDate.getMonth() - 1, 1); renderCalendar(); });
