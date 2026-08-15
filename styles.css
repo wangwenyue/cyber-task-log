@@ -63,3 +63,24 @@ body{position:relative;background:#05070c}
 @keyframes streamFlow{from{background-position:0 0,0 0}to{background-position:90% 120%,110% -80%}}
 @media(max-width:560px){.flow-aurora{filter:blur(48px);opacity:.72}.flow-grid{opacity:.1;background-size:54px 54px;animation-duration:14s}.flow-streams{opacity:.18;animation-duration:24s}.panel{backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}}
 @media(prefers-reduced-motion:reduce){.flow-aurora,.flow-grid,.flow-streams{animation:none!important}.flow-aurora-a{transform:translate3d(12%,10%,0)}.flow-aurora-b{transform:translate3d(-10%,-12%,0)}}
+
+/* Neon city depth and digital rain */
+.flow-city{position:absolute;left:0;right:0;bottom:5vmax;height:42vh;opacity:.34;filter:drop-shadow(0 -2px 8px rgba(91,245,223,.2));animation:cityPulse 7s ease-in-out infinite;clip-path:polygon(0 52%,4% 52%,4% 30%,8% 30%,8% 46%,12% 46%,12% 18%,16% 18%,16% 57%,20% 57%,20% 36%,25% 36%,25% 12%,29% 12%,29% 45%,33% 45%,33% 25%,38% 25%,38% 54%,42% 54%,42% 34%,46% 34%,46% 8%,50% 8%,50% 42%,54% 42%,54% 22%,58% 22%,58% 48%,63% 48%,63% 28%,68% 28%,68% 15%,72% 15%,72% 51%,77% 51%,77% 32%,82% 32%,82% 5%,86% 5%,86% 44%,91% 44%,91% 24%,95% 24%,95% 54%,100% 54%,100% 100%,0 100%);background:linear-gradient(to bottom,rgba(7,22,31,.72),rgba(2,6,10,.96)),repeating-linear-gradient(90deg,transparent 0 18px,rgba(91,245,223,.85) 19px 21px,transparent 22px 36px),repeating-linear-gradient(0deg,transparent 0 16px,rgba(255,79,163,.65) 17px 19px,transparent 20px 32px);background-blend-mode:normal,screen,screen}
+.flow-city::before,.flow-city::after{content:"";position:absolute;top:0;bottom:0;width:2px;background:linear-gradient(transparent,var(--cyan),transparent);box-shadow:0 0 12px var(--cyan)}
+.flow-city::before{left:46%;animation:antennaGlow 3s ease-in-out infinite}.flow-city::after{left:82%;height:22%;animation:antennaGlow 3s 1.4s ease-in-out infinite}
+.flow-city i{position:absolute;left:0;right:0;bottom:0;height:2px;background:linear-gradient(90deg,transparent,var(--pink),var(--cyan),transparent);box-shadow:0 0 18px rgba(91,245,223,.65)}
+.neon-rain{position:absolute;inset:0;opacity:.2;background-image:repeating-linear-gradient(105deg,transparent 0 36px,rgba(91,245,223,.45) 37px,transparent 39px 86px),repeating-linear-gradient(80deg,transparent 0 52px,rgba(255,79,163,.3) 53px,transparent 55px 110px);background-size:220px 360px,280px 420px;mask-image:linear-gradient(to bottom,rgba(0,0,0,.85),transparent 88%);animation:neonRain 3.8s linear infinite}
+@keyframes neonRain{from{background-position:0 -420px,40px -500px}to{background-position:-70px 420px,120px 500px}}
+@keyframes cityPulse{0%,100%{opacity:.28;filter:drop-shadow(0 -2px 7px rgba(91,245,223,.16))}50%{opacity:.4;filter:drop-shadow(0 -3px 14px rgba(255,79,163,.24))}}
+@keyframes antennaGlow{50%{opacity:.25;box-shadow:0 0 4px var(--cyan)}}
+
+@media(max-width:560px){
+  .cyber-flow{background:radial-gradient(circle at 22% 18%,rgba(0,209,196,.18),transparent 34%),radial-gradient(circle at 82% 68%,rgba(255,31,146,.2),transparent 38%),#04070c}
+  .flow-aurora{opacity:.96;filter:blur(42px)}
+  .flow-grid{opacity:.2;background-size:50px 50px;animation-duration:10s}
+  .flow-streams{opacity:.3;animation-duration:16s}
+  .neon-rain{opacity:.31;animation-duration:3.2s}
+  .flow-city{height:48vh;bottom:8vmax;opacity:.42;animation-duration:5s}
+  .panel{background:linear-gradient(145deg,rgba(13,20,30,.88),rgba(5,9,16,.92));border-color:rgba(65,91,108,.7)}
+}
+@media(prefers-reduced-motion:reduce){.neon-rain,.flow-city,.flow-city::before,.flow-city::after{animation:none!important}}
