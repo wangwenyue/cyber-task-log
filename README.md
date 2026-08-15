@@ -11,6 +11,8 @@
 - 使用 Supabase Auth 登录，任务存储在云端 Postgres
 - 同一账号可在电脑和手机间同步任务
 - 首次登录时自动迁移旧版浏览器本地任务
+- 可在账号设置中配置每日待办邮件、发送时间和时区
+- Supabase Cron 每分钟检查提醒，由 Edge Function 通过 Resend 发送
 - 适配桌面和手机屏幕
 
 ## 本地预览
@@ -37,3 +39,10 @@ python3 -m http.server 8000
 ## 云端配置
 
 前端通过 Supabase publishable key 连接云端，数据访问由 Auth 与 Row Level Security 隔离。`service_role` 或 secret key 不得写入前端文件。
+
+邮件服务端密钥保存在 Supabase Edge Function Secrets：
+
+- `RESEND_API_KEY`
+- `EMAIL_FROM`
+
+数据库迁移位于 `supabase/migrations/`，邮件函数位于 `supabase/functions/send-task-reminders/`。

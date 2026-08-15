@@ -27,6 +27,11 @@ const elements = {
   authMessage: document.querySelector('#authMessage'), accountButton: document.querySelector('#accountButton'),
   accountEmail: document.querySelector('#accountEmail'), systemStatus: document.querySelector('#systemStatus'),
   footerStatus: document.querySelector('#footerStatus'),
+  reminderDialog: document.querySelector('#reminderDialog'), reminderForm: document.querySelector('#reminderForm'),
+  reminderEmail: document.querySelector('#reminderEmail'), reminderEnabled: document.querySelector('#reminderEnabled'),
+  reminderTime: document.querySelector('#reminderTime'), reminderTimezone: document.querySelector('#reminderTimezone'),
+  reminderStatus: document.querySelector('#reminderStatus'), testEmailButton: document.querySelector('#testEmailButton'),
+  signOutButton: document.querySelector('#signOutButton'), closeReminder: document.querySelector('#closeReminder'),
 };
 
 function toDateKey(date) {
@@ -187,6 +192,49 @@ function showToast(message) {
   clearTimeout(showToast.timer); showToast.timer = setTimeout(() => elements.toast.classList.remove('show'), 2600);
 }
 
+async function openReminderSettings() {
+  if (!state.user) return;
+  elements.reminderEmail.value = state.user.email || '';
+  elements.reminderEnabled.checked = false; elements.reminderTime.value = '09:00'; elements.reminderTimezone.value = 'Asia/Shanghai';
+  elements.reminderStatus.textContent = '正在读取云端设置...'; elements.reminderDialog.showModal();
+  const { data, error } = await supabaseClient.from('reminder_settings').select('*').eq('user_id', state.user.id).maybeSingle();
+  if (error) { elements.reminderStatus.textContent = `读取失败：${error.message}`; return; }
+  if (!data) { elements.reminderStatus.textContent = '尚未配置。保存后定时任务会自动生效。'; return; }
+  elements.reminderEnabled.checked = data.enabled;
+  elements.reminderTime.value = data.reminder_time.slice(0, 5);
+  elements.reminderTimezone.value = data.timezone;
+  elements.reminderStatus.textContent = data.last_sent_on ? `上次发送日期：${data.last_sent_on}` : '尚未发送过每日提醒';
+}
+
+async function saveReminderSettings(showSuccess = true) {
+  if (!state.user) return false;
+  const payload = {
+    user_id: state.user.id, email: state.user.email, enabled: elements.reminderEnabled.checked,
+    reminder_time: `${elements.reminderTime.value}:00`, timezone: elements.reminderTimezone.value,
+    updated_at: new Date().toISOString(),
+  };
+  const { error } = await supabaseClient.from('reminder_settings').upsert(payload, { onConflict: 'user_id' });
+  if (error) { elements.reminderStatus.textContent = `保存失败：${error.message}`; return false; }
+  elements.reminderStatus.textContent = payload.enabled
+    ? `已启用：每天 ${elements.reminderTime.value}（${elements.reminderTimezone.selectedOptions[0].textContent}）`
+    : '每日邮件提醒已关闭';
+  if (showSuccess) showToast('邮件提醒设置已保存');
+  return true;
+}
+
+async function sendTestEmail() {
+  elements.testEmailButton.disabled = true; elements.reminderStatus.textContent = '正在生成并发送测试邮件...';
+  if (!await saveReminderSettings(false)) { elements.testEmailButton.disabled = false; return; }
+  const { data, error } = await supabaseClient.functions.invoke('send-task-reminders', { body: { test: true } });
+  elements.testEmailButton.disabled = false;
+  const result = data?.results?.[0];
+  if (error || !data?.ok || result?.status !== 'sent') {
+    const detail = result?.detail || error?.message || data?.error || '未知错误';
+    elements.reminderStatus.textContent = `测试邮件发送失败：${detail}`; return;
+  }
+  elements.reminderStatus.textContent = `测试邮件已发送至 ${state.user.email}`; showToast('测试邮件发送成功');
+}
+
 function updateAuthUI() {
   const registering = state.authMode === 'register';
   elements.authTitle.textContent = registering ? '创建云端身份' : '连接你的工作档案';
@@ -214,7 +262,11 @@ elements.authForm.addEventListener('submit', async (event) => {
   if (state.authMode === 'register' && !result.data.session) elements.authMessage.textContent = '注册成功，请检查邮箱并点击确认链接。';
 });
 elements.authSwitch.addEventListener('click', () => { state.authMode = state.authMode === 'login' ? 'register' : 'login'; updateAuthUI(); });
-elements.accountButton.addEventListener('click', async () => { await supabaseClient.auth.signOut(); showToast('已安全退出云端终端'); });
+elements.accountButton.addEventListener('click', openReminderSettings);
+elements.closeReminder.addEventListener('click', () => elements.reminderDialog.close());
+elements.reminderForm.addEventListener('submit', async (event) => { event.preventDefault(); if (await saveReminderSettings()) elements.reminderDialog.close(); });
+elements.testEmailButton.addEventListener('click', sendTestEmail);
+elements.signOutButton.addEventListener('click', async () => { elements.reminderDialog.close(); await supabaseClient.auth.signOut(); showToast('已安全退出云端终端'); });
 elements.taskForm.addEventListener('submit', async (event) => {
   event.preventDefault(); const title = elements.taskInput.value.trim(); if (!title || !state.user) return;
   elements.taskInput.disabled = true; if (await addTask(title)) elements.taskInput.value = ''; elements.taskInput.disabled = false; elements.taskInput.focus();
