@@ -8,7 +8,9 @@
 - 完成任务后自动从当前队列隐藏
 - 显示、恢复、编辑或删除任务
 - 汇总最近 30 天完成的工作、活跃天数和完成率
-- 数据通过 `localStorage` 保存在当前浏览器
+- 使用 Supabase Auth 登录，任务存储在云端 Postgres
+- 同一账号可在电脑和手机间同步任务
+- 首次登录时自动迁移旧版浏览器本地任务
 - 适配桌面和手机屏幕
 
 ## 本地预览
@@ -32,4 +34,6 @@ python3 -m http.server 8000
 
 发布地址通常为 `https://<用户名>.github.io/neon-log/`。
 
-> GitHub Pages 只提供静态托管，因此当前版本的数据不会跨浏览器或跨设备同步。
+## 云端配置
+
+前端通过 Supabase publishable key 连接云端，数据访问由 Auth 与 Row Level Security 隔离。`service_role` 或 secret key 不得写入前端文件。

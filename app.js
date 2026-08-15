@@ -1,10 +1,12 @@
-const STORAGE_KEY = 'neon-log-tasks-v1';
+const SUPABASE_URL = 'https://osgsjjqidodyjreslrbv.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_nS9Bu52AEVM2i8kYPnWb0A_yIT4p6XX';
+const LEGACY_STORAGE_KEY = 'neon-log-tasks-v1';
+const CACHE_PREFIX = 'neon-log-cloud-cache-';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
 const state = {
-  tasks: loadTasks(),
-  selectedDate: toDateKey(new Date()),
-  calendarDate: startOfMonth(new Date()),
-  showCompleted: false,
-  editingId: null,
+  tasks: [], user: null, selectedDate: toDateKey(new Date()), calendarDate: startOfMonth(new Date()),
+  showCompleted: false, editingId: null, authMode: 'login',
 };
 
 const elements = {
@@ -18,40 +20,72 @@ const elements = {
   activeDaysStat: document.querySelector('#activeDaysStat'), completionStat: document.querySelector('#completionStat'),
   editDialog: document.querySelector('#editDialog'), editForm: document.querySelector('#editForm'),
   editInput: document.querySelector('#editInput'), toast: document.querySelector('#toast'),
+  authGate: document.querySelector('#authGate'), authForm: document.querySelector('#authForm'),
+  emailInput: document.querySelector('#emailInput'), passwordInput: document.querySelector('#passwordInput'),
+  authSubmit: document.querySelector('#authSubmit'), authSwitch: document.querySelector('#authSwitch'),
+  authTitle: document.querySelector('#authTitle'), authDescription: document.querySelector('#authDescription'),
+  authMessage: document.querySelector('#authMessage'), accountButton: document.querySelector('#accountButton'),
+  accountEmail: document.querySelector('#accountEmail'), systemStatus: document.querySelector('#systemStatus'),
+  footerStatus: document.querySelector('#footerStatus'),
 };
 
-function loadTasks() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    return Array.isArray(parsed) ? parsed : [];
-  } catch { return []; }
-}
-
-function saveTasks() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.tasks));
-}
-
 function toDateKey(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+  const year = date.getFullYear(), month = String(date.getMonth() + 1).padStart(2, '0'), day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
-
-function fromDateKey(key) {
-  const [year, month, day] = key.split('-').map(Number);
-  return new Date(year, month - 1, day);
-}
-
+function fromDateKey(key) { const [year, month, day] = key.split('-').map(Number); return new Date(year, month - 1, day); }
 function startOfMonth(date) { return new Date(date.getFullYear(), date.getMonth(), 1); }
 function sameMonth(a, b) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth(); }
-function uid() { return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`; }
 function escapeHtml(value) { const node = document.createElement('span'); node.textContent = value; return node.innerHTML; }
+function tasksForDate(key) { return state.tasks.filter((task) => task.date === key); }
+function formatDate(date, options) { return new Intl.DateTimeFormat('zh-CN', options).format(date); }
+function formatTime(timestamp) { return timestamp ? new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(timestamp)) : '--:--'; }
+function cacheKey() { return `${CACHE_PREFIX}${state.user?.id || 'guest'}`; }
 
-function tasksForDate(dateKey) { return state.tasks.filter((task) => task.date === dateKey); }
+function setSyncStatus(status, message) {
+  elements.systemStatus.className = `system-status ${status || ''}`;
+  elements.systemStatus.innerHTML = `<i></i> ${message}`;
+  elements.footerStatus.textContent = message;
+}
 
-function formatDate(date, options) {
-  return new Intl.DateTimeFormat('zh-CN', options).format(date);
+function mapTask(row) {
+  return {
+    id: row.id, title: row.title, date: row.task_date, completed: row.completed,
+    createdAt: new Date(row.created_at).getTime(), completedAt: row.completed_at ? new Date(row.completed_at).getTime() : null,
+  };
+}
+
+function loadCache() {
+  try { const value = JSON.parse(localStorage.getItem(cacheKey())); return Array.isArray(value) ? value : []; }
+  catch { return []; }
+}
+function saveCache() { if (state.user) localStorage.setItem(cacheKey(), JSON.stringify(state.tasks)); }
+
+async function loadCloudTasks({ quiet = false } = {}) {
+  if (!state.user) return;
+  if (!quiet) setSyncStatus('syncing', 'SYNCING CLOUD DATA');
+  const { data, error } = await supabaseClient.from('tasks').select('*').order('created_at', { ascending: false });
+  if (error) {
+    state.tasks = loadCache(); render(); setSyncStatus('error', 'SYNC FAILED — USING CACHE');
+    if (!quiet) showToast(`同步失败：${error.message}`);
+    return;
+  }
+  state.tasks = data.map(mapTask); saveCache(); render(); setSyncStatus('', 'CLOUD SYSTEM ONLINE');
+}
+
+async function migrateLegacyTasks() {
+  let legacy = [];
+  try { legacy = JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY)) || []; } catch {}
+  if (!legacy.length || !state.user) return;
+  setSyncStatus('syncing', 'MIGRATING LOCAL DATA');
+  const rows = legacy.map((task) => ({
+    user_id: state.user.id, title: task.title, task_date: task.date, completed: Boolean(task.completed),
+    created_at: new Date(task.createdAt || Date.now()).toISOString(),
+    completed_at: task.completedAt ? new Date(task.completedAt).toISOString() : null,
+  }));
+  const { error } = await supabaseClient.from('tasks').insert(rows);
+  if (error) { showToast(`本地任务迁移失败：${error.message}`); return; }
+  localStorage.removeItem(LEGACY_STORAGE_KEY); showToast(`已迁移 ${legacy.length} 项本地任务到云端`);
 }
 
 function renderCalendar() {
@@ -61,23 +95,17 @@ function renderCalendar() {
   elements.calendarGrid.innerHTML = '';
   const firstWeekday = (view.getDay() + 6) % 7;
   const firstCell = new Date(view.getFullYear(), view.getMonth(), 1 - firstWeekday);
-
   for (let index = 0; index < 42; index += 1) {
-    const date = new Date(firstCell);
-    date.setDate(firstCell.getDate() + index);
-    const key = toDateKey(date);
-    const dailyTasks = tasksForDate(key);
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'calendar-day';
+    const date = new Date(firstCell); date.setDate(firstCell.getDate() + index);
+    const key = toDateKey(date), dailyTasks = tasksForDate(key), button = document.createElement('button');
+    button.type = 'button'; button.className = 'calendar-day';
     if (!sameMonth(date, view)) button.classList.add('outside');
     if (key === toDateKey(new Date())) button.classList.add('today');
     if (key === state.selectedDate) button.classList.add('selected');
     if (dailyTasks.length && dailyTasks.every((task) => task.completed)) button.classList.add('all-done');
     button.innerHTML = `<span>${date.getDate()}</span>${dailyTasks.length ? '<i class="day-dot"></i>' : ''}`;
     button.setAttribute('aria-label', `${formatDate(date, { month: 'long', day: 'numeric' })}，${dailyTasks.length} 项任务`);
-    button.addEventListener('click', () => selectDate(key));
-    elements.calendarGrid.appendChild(button);
+    button.addEventListener('click', () => selectDate(key)); elements.calendarGrid.appendChild(button);
   }
 }
 
@@ -94,89 +122,102 @@ function renderTasks() {
   elements.progressRing.style.setProperty('--progress', `${progress * 3.6}deg`);
   elements.showCompletedButton.textContent = state.showCompleted ? '隐藏已完成' : `显示已完成${completedCount ? ` (${completedCount})` : ''}`;
   elements.showCompletedButton.setAttribute('aria-pressed', String(state.showCompleted));
-
   if (!visible.length) {
     elements.taskList.innerHTML = `<div class="empty-state"><div><div class="empty-glyph">[ ]</div><strong>${all.length ? 'ACTIVE QUEUE CLEARED' : 'NO OPERATIONS FOUND'}</strong><span>${all.length ? '这一天的任务已经全部完成。' : '输入一项任务，启动今天的工作。'}</span></div></div>`;
     return;
   }
-
   elements.taskList.innerHTML = visible.map((task) => `
     <article class="task-item ${task.completed ? 'completed' : ''}" data-id="${task.id}">
       <button class="check-button" data-action="toggle" type="button" aria-label="${task.completed ? '恢复' : '完成'}任务">✓</button>
       <div class="task-copy"><strong>${escapeHtml(task.title)}</strong><span>${task.completed ? `COMPLETED // ${formatTime(task.completedAt)}` : `CREATED // ${formatTime(task.createdAt)}`}</span></div>
-      <div class="task-actions">
-        <button data-action="edit" type="button" aria-label="编辑任务">✎</button>
-        <button class="delete" data-action="delete" type="button" aria-label="删除任务">×</button>
-      </div>
+      <div class="task-actions"><button data-action="edit" type="button" aria-label="编辑任务">✎</button><button class="delete" data-action="delete" type="button" aria-label="删除任务">×</button></div>
     </article>`).join('');
-}
-
-function formatTime(timestamp) {
-  return timestamp ? new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(timestamp)) : '--:--';
 }
 
 function renderHistory() {
   const today = new Date(); today.setHours(23, 59, 59, 999);
   const start = new Date(today); start.setDate(today.getDate() - 29); start.setHours(0, 0, 0, 0);
-  const recent = state.tasks.filter((task) => {
-    const date = fromDateKey(task.date);
-    return date >= start && date <= today;
-  });
+  const recent = state.tasks.filter((task) => { const date = fromDateKey(task.date); return date >= start && date <= today; });
   const completed = recent.filter((task) => task.completed);
-  const groups = Object.groupBy ? Object.groupBy(completed, (task) => task.date) : completed.reduce((result, task) => {
-    (result[task.date] ||= []).push(task); return result;
-  }, {});
+  const groups = completed.reduce((result, task) => { (result[task.date] ||= []).push(task); return result; }, {});
   const dates = Object.keys(groups).sort().reverse();
-  elements.completedStat.textContent = completed.length;
-  elements.activeDaysStat.textContent = dates.length;
+  elements.completedStat.textContent = completed.length; elements.activeDaysStat.textContent = dates.length;
   elements.completionStat.textContent = `${recent.length ? Math.round(completed.length / recent.length * 100) : 0}%`;
   elements.historyList.innerHTML = dates.length ? dates.map((key) => {
-    const date = fromDateKey(key); const tasks = groups[key];
+    const date = fromDateKey(key), tasks = groups[key];
     return `<article class="history-day"><div class="history-date"><strong>${formatDate(date, { month: '2-digit', day: '2-digit' })}</strong><span>${formatDate(date, { weekday: 'short' })}</span></div><div class="history-tasks">${tasks.map((task) => `<span class="history-task">✓ ${escapeHtml(task.title)}</span>`).join('')}</div><span class="history-count">${tasks.length} DONE</span></article>`;
   }).join('') : '<div class="empty-state"><div><div class="empty-glyph">//</div><strong>ARCHIVE IS EMPTY</strong><span>完成的任务会出现在这里。</span></div></div>';
 }
 
 function render() { renderCalendar(); renderTasks(); renderHistory(); }
-
 function selectDate(key) {
-  state.selectedDate = key;
-  state.calendarDate = startOfMonth(fromDateKey(key));
-  state.showCompleted = false;
-  render();
+  state.selectedDate = key; state.calendarDate = startOfMonth(fromDateKey(key)); state.showCompleted = false; render();
   if (innerWidth < 821) document.querySelector('.task-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function addTask(title) {
-  state.tasks.push({ id: uid(), title: title.trim(), date: state.selectedDate, completed: false, createdAt: Date.now(), completedAt: null });
-  saveTasks(); render(); showToast('任务已写入队列');
+async function addTask(title) {
+  setSyncStatus('syncing', 'WRITING TO CLOUD');
+  const { data, error } = await supabaseClient.from('tasks').insert({ user_id: state.user.id, title: title.trim(), task_date: state.selectedDate }).select().single();
+  if (error) { setSyncStatus('error', 'SYNC FAILED'); showToast(`添加失败：${error.message}`); return false; }
+  state.tasks.unshift(mapTask(data)); saveCache(); render(); setSyncStatus('', 'CLOUD SYSTEM ONLINE'); showToast('任务已同步到云端'); return true;
 }
 
-function toggleTask(id) {
+async function toggleTask(id) {
   const task = state.tasks.find((item) => item.id === id); if (!task) return;
-  task.completed = !task.completed; task.completedAt = task.completed ? Date.now() : null;
-  saveTasks(); render(); if (task.completed) showToast('任务完成，已转入档案');
+  const nextCompleted = !task.completed, completedAt = nextCompleted ? new Date().toISOString() : null;
+  const { data, error } = await supabaseClient.from('tasks').update({ completed: nextCompleted, completed_at: completedAt, updated_at: new Date().toISOString() }).eq('id', id).select().single();
+  if (error) { showToast(`更新失败：${error.message}`); return; }
+  Object.assign(task, mapTask(data)); saveCache(); render(); if (task.completed) showToast('任务完成，已同步到档案');
 }
 
-function deleteTask(id) {
-  const task = state.tasks.find((item) => item.id === id); if (!task) return;
-  if (!confirm(`确定删除“${task.title}”吗？此操作无法撤销。`)) return;
-  state.tasks = state.tasks.filter((item) => item.id !== id); saveTasks(); render(); showToast('任务已删除');
+async function deleteTask(id) {
+  const task = state.tasks.find((item) => item.id === id);
+  if (!task || !confirm(`确定删除“${task.title}”吗？此操作无法撤销。`)) return;
+  const { error } = await supabaseClient.from('tasks').delete().eq('id', id);
+  if (error) { showToast(`删除失败：${error.message}`); return; }
+  state.tasks = state.tasks.filter((item) => item.id !== id); saveCache(); render(); showToast('任务已从云端删除');
 }
 
 function openEdit(id) {
   const task = state.tasks.find((item) => item.id === id); if (!task) return;
-  state.editingId = id; elements.editInput.value = task.title; elements.editDialog.showModal();
-  requestAnimationFrame(() => elements.editInput.select());
+  state.editingId = id; elements.editInput.value = task.title; elements.editDialog.showModal(); requestAnimationFrame(() => elements.editInput.select());
 }
-
 function showToast(message) {
   elements.toast.textContent = message; elements.toast.classList.add('show');
-  clearTimeout(showToast.timer); showToast.timer = setTimeout(() => elements.toast.classList.remove('show'), 2200);
+  clearTimeout(showToast.timer); showToast.timer = setTimeout(() => elements.toast.classList.remove('show'), 2600);
 }
 
-elements.taskForm.addEventListener('submit', (event) => {
-  event.preventDefault(); const title = elements.taskInput.value.trim(); if (!title) return;
-  addTask(title); elements.taskInput.value = ''; elements.taskInput.focus();
+function updateAuthUI() {
+  const registering = state.authMode === 'register';
+  elements.authTitle.textContent = registering ? '创建云端身份' : '连接你的工作档案';
+  elements.authDescription.textContent = registering ? '注册后请在邮箱中确认账号，再返回这里登录。' : '登录后，任务将在电脑和手机之间同步。';
+  elements.authSubmit.textContent = registering ? '创建云端账号' : '登录云端终端';
+  elements.authSwitch.textContent = registering ? '已有账号？返回登录' : '还没有账号？创建账号';
+  elements.passwordInput.autocomplete = registering ? 'new-password' : 'current-password'; elements.authMessage.textContent = '';
+}
+
+async function handleSession(session) {
+  state.user = session?.user || null;
+  elements.authGate.hidden = Boolean(state.user); elements.accountButton.hidden = !state.user;
+  if (!state.user) { state.tasks = []; setSyncStatus('', 'CLOUD LINK STANDBY'); render(); return; }
+  elements.accountEmail.textContent = state.user.email; await migrateLegacyTasks(); await loadCloudTasks();
+}
+
+elements.authForm.addEventListener('submit', async (event) => {
+  event.preventDefault(); elements.authSubmit.disabled = true; elements.authMessage.textContent = '正在建立安全连接...';
+  const email = elements.emailInput.value.trim(), password = elements.passwordInput.value;
+  const result = state.authMode === 'register'
+    ? await supabaseClient.auth.signUp({ email, password, options: { emailRedirectTo: `${location.origin}${location.pathname}` } })
+    : await supabaseClient.auth.signInWithPassword({ email, password });
+  elements.authSubmit.disabled = false;
+  if (result.error) { elements.authMessage.textContent = `错误：${result.error.message}`; return; }
+  if (state.authMode === 'register' && !result.data.session) elements.authMessage.textContent = '注册成功，请检查邮箱并点击确认链接。';
+});
+elements.authSwitch.addEventListener('click', () => { state.authMode = state.authMode === 'login' ? 'register' : 'login'; updateAuthUI(); });
+elements.accountButton.addEventListener('click', async () => { await supabaseClient.auth.signOut(); showToast('已安全退出云端终端'); });
+elements.taskForm.addEventListener('submit', async (event) => {
+  event.preventDefault(); const title = elements.taskInput.value.trim(); if (!title || !state.user) return;
+  elements.taskInput.disabled = true; if (await addTask(title)) elements.taskInput.value = ''; elements.taskInput.disabled = false; elements.taskInput.focus();
 });
 elements.taskList.addEventListener('click', (event) => {
   const button = event.target.closest('button[data-action]'); if (!button) return;
@@ -191,10 +232,14 @@ document.querySelector('#nextMonth').addEventListener('click', () => { state.cal
 document.querySelector('#todayButton').addEventListener('click', () => selectDate(toDateKey(new Date())));
 document.querySelector('.brand').addEventListener('click', (event) => { event.preventDefault(); selectDate(toDateKey(new Date())); });
 document.querySelector('#cancelEdit').addEventListener('click', () => elements.editDialog.close());
-elements.editForm.addEventListener('submit', (event) => {
+elements.editForm.addEventListener('submit', async (event) => {
   event.preventDefault(); const title = elements.editInput.value.trim(); if (!title) return;
-  const task = state.tasks.find((item) => item.id === state.editingId); if (task) task.title = title;
-  saveTasks(); elements.editDialog.close(); render(); showToast('任务已更新');
+  const { data, error } = await supabaseClient.from('tasks').update({ title, updated_at: new Date().toISOString() }).eq('id', state.editingId).select().single();
+  if (error) { showToast(`修改失败：${error.message}`); return; }
+  const index = state.tasks.findIndex((task) => task.id === state.editingId); if (index >= 0) state.tasks[index] = mapTask(data);
+  saveCache(); elements.editDialog.close(); render(); showToast('修改已同步');
 });
 
-render();
+document.addEventListener('visibilitychange', () => { if (!document.hidden && state.user) loadCloudTasks({ quiet: true }); });
+supabaseClient.auth.onAuthStateChange((_event, session) => { setTimeout(() => handleSession(session), 0); });
+updateAuthUI(); render();

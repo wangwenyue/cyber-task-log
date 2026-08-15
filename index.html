@@ -17,7 +17,10 @@
         <span class="brand-mark">NL</span>
         <span><strong>NEON LOG</strong><small>PERSONAL WORK TERMINAL</small></span>
       </a>
-      <div class="system-status"><i></i> LOCAL SYSTEM ONLINE</div>
+      <div class="system-status" id="systemStatus"><i></i> CLOUD LINK STANDBY</div>
+      <button class="account-button" id="accountButton" type="button" hidden>
+        <span id="accountEmail"></span><b>退出</b>
+      </button>
       <button class="today-button" id="todayButton" type="button">回到今天</button>
     </header>
 
@@ -83,8 +86,26 @@
       <div class="history-list" id="historyList"></div>
     </section>
 
-    <footer><span>NEON LOG v1.0</span><span>数据仅保存在当前浏览器</span></footer>
+    <footer><span>NEON LOG v2.0</span><span id="footerStatus">SUPABASE CLOUD SYNC</span></footer>
   </main>
+
+  <section class="auth-gate" id="authGate" aria-labelledby="authTitle">
+    <div class="auth-card panel">
+      <div class="auth-brand"><span class="brand-mark">NL</span><div><strong>IDENTITY REQUIRED</strong><small>SECURE CLOUD ACCESS</small></div></div>
+      <div class="panel-label">SUPABASE AUTH TERMINAL</div>
+      <h2 id="authTitle">连接你的工作档案</h2>
+      <p id="authDescription">登录后，任务将在电脑和手机之间同步。</p>
+      <form id="authForm">
+        <label for="emailInput">邮箱</label>
+        <input id="emailInput" type="email" autocomplete="email" placeholder="you@example.com" required>
+        <label for="passwordInput">密码</label>
+        <input id="passwordInput" type="password" autocomplete="current-password" minlength="6" placeholder="至少 6 位" required>
+        <button id="authSubmit" type="submit">登录云端终端</button>
+      </form>
+      <button class="auth-switch" id="authSwitch" type="button">还没有账号？创建账号</button>
+      <div class="auth-message" id="authMessage" role="status" aria-live="polite"></div>
+    </div>
+  </section>
 
   <dialog id="editDialog">
     <form method="dialog" id="editForm">
@@ -100,6 +121,7 @@
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="app.js"></script>
 </body>
 </html>
