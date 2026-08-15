@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#080b12">
   <title>NEON LOG // 每日任务终端</title>
   <script>try{const t=localStorage.getItem('neon-log-theme');document.documentElement.dataset.theme=t==='minimal'?'minimal':'cyber'}catch{document.documentElement.dataset.theme='cyber'}</script>
-  <link rel="stylesheet" href="styles.css?v=6.4">
+  <link rel="stylesheet" href="styles.css?v=7.1">
 </head>
 <body>
   <div class="cyber-flow" aria-hidden="true">
@@ -26,11 +26,9 @@
         <span class="brand-mark">NL</span>
         <span><strong>NEON LOG</strong><small>PERSONAL WORK TERMINAL</small></span>
       </a>
-      <div class="system-status" id="systemStatus"><i></i> CLOUD LINK STANDBY</div>
+      <div class="system-status" id="systemStatus"><i></i> LOCAL STORAGE STANDBY</div>
       <button class="theme-toggle" id="themeToggle" type="button" aria-label="切换界面主题" title="切换界面主题"><i></i><span>2077</span></button>
-      <button class="account-button" id="accountButton" type="button" hidden>
-        <span id="accountEmail"></span><b>设置</b>
-      </button>
+      <button class="notification-button" id="notificationButton" type="button" aria-label="桌面提醒" title="桌面提醒"><i>🔔</i><span>提醒</span></button>
       <button class="today-button" id="todayButton" type="button">回到今天</button>
     </header>
 
@@ -104,27 +102,8 @@
       <div class="history-list" id="historyList"></div>
     </section>
 
-    <footer><span>NEON LOG v6.4</span><span id="footerStatus">SUPABASE CLOUD SYNC</span></footer>
+    <footer><span>NEON LOG v7.0</span><span id="footerStatus">LOCAL ONLY STORAGE</span></footer>
   </main>
-
-  <section class="auth-gate" id="authGate" aria-labelledby="authTitle" hidden>
-    <div class="auth-card panel">
-      <div class="auth-brand"><span class="brand-mark">NL</span><div><strong>IDENTITY REQUIRED</strong><small>SECURE CLOUD ACCESS</small></div></div>
-      <button class="auth-close" id="authClose" type="button" aria-label="关闭登录">×</button>
-      <div class="panel-label">SUPABASE AUTH TERMINAL</div>
-      <h2 id="authTitle">连接你的工作档案</h2>
-      <p id="authDescription">登录后，任务将在电脑和手机之间同步。</p>
-      <form id="authForm">
-        <label for="emailInput">邮箱</label>
-        <input id="emailInput" type="email" autocomplete="email" placeholder="you@example.com" required>
-        <label for="passwordInput">密码</label>
-        <input id="passwordInput" type="password" autocomplete="current-password" minlength="6" placeholder="至少 6 位" required>
-        <button id="authSubmit" type="submit">登录云端终端</button>
-      </form>
-      <button class="auth-switch" id="authSwitch" type="button">还没有账号？创建账号</button>
-      <div class="auth-message" id="authMessage" role="status" aria-live="polite"></div>
-    </div>
-  </section>
 
   <dialog id="editDialog" class="task-editor-dialog">
     <form method="dialog" id="editForm">
@@ -149,31 +128,21 @@
 
   <dialog id="reminderDialog" class="settings-dialog">
     <form method="dialog" id="reminderForm">
-      <div class="panel-label">ACCOUNT // DAILY EMAIL</div>
-      <h2>账号与邮件提醒</h2>
-      <label for="reminderEmail">接收邮箱</label>
-      <input id="reminderEmail" type="email" readonly>
+      <div class="panel-label">DESKTOP NOTIFICATION</div>
+      <h2>桌面提醒</h2>
       <label class="switch-row" for="reminderEnabled">
-        <span><strong>每日待办邮件</strong><small>按设定时间发送当天未完成任务</small></span>
+        <span><strong>任务到期桌面提醒</strong><small>当任务到达截止时间时发送系统通知</small></span>
         <input id="reminderEnabled" type="checkbox">
       </label>
-      <div class="settings-grid">
-        <div><label for="reminderTime">发送时间</label><input id="reminderTime" type="time" value="09:00" required></div>
-        <div><label for="reminderTimezone">时区</label><select id="reminderTimezone"><option value="Asia/Shanghai">中国标准时间</option><option value="Asia/Hong_Kong">香港时间</option><option value="Asia/Tokyo">日本时间</option><option value="Europe/London">伦敦时间</option><option value="America/New_York">纽约时间</option><option value="America/Los_Angeles">洛杉矶时间</option></select></div>
+      <p class="settings-note" id="reminderStatus">尚未开启。打开开关后会请求系统通知权限。</p>
+      <div class="dialog-actions">
+        <button type="button" id="closeReminder">关闭</button>
       </div>
-      <p class="settings-note" id="reminderStatus">提醒尚未配置</p>
-      <div class="dialog-actions settings-actions">
-        <button type="button" class="danger-action" id="signOutButton">退出登录</button>
-        <span></span>
-        <button type="button" id="testEmailButton">发送测试邮件</button>
-        <button type="submit">保存设置</button>
-      </div>
-      <button class="dialog-close" type="button" id="closeReminder" aria-label="关闭">×</button>
+      <button class="dialog-close" type="button" id="closeReminderTop" aria-label="关闭">×</button>
     </form>
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js?v=6.4"></script>
+  <script src="app.js?v=7.1"></script>
 </body>
 </html>

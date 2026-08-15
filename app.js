@@ -1,102 +1,361 @@
-const SUPABASE_URL = 'https://osgsjjqidodyjreslrbv.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_nS9Bu52AEVM2i8kYPnWb0A_yIT4p6XX';
+const STORAGE_KEY = 'neon-log-local-tasks';
 const LEGACY_STORAGE_KEY = 'neon-log-tasks-v1';
 const CACHE_PREFIX = 'neon-log-cloud-cache-';
 const THEME_STORAGE_KEY = 'neon-log-theme';
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+const REMINDER_STORAGE_KEY = 'neon-log-reminder-enabled';
+const REMINDER_SENT_KEY = 'neon-log-reminder-sent';
+const REMINDER_CHECK_INTERVAL = 15000;
+
+let reminderTimer = null;
+
 const PRIORITIES = {
-  normal: { label: '普通', weight: 0 }, important: { label: '重要', weight: 1 },
-  urgent: { label: '紧急', weight: 2 }, critical: { label: '立即处理', weight: 3 },
+  normal: { label: '普通', weight: 0 },
+  important: { label: '重要', weight: 1 },
+  urgent: { label: '紧急', weight: 2 },
+  critical: { label: '立即处理', weight: 3 },
 };
+
 const HOUR_OPTIONS = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, '0'));
 const MINUTE_OPTIONS = Array.from({ length: 12 }, (_, index) => String(index * 5).padStart(2, '0'));
 
 const state = {
-  tasks: [], user: null, selectedDate: toDateKey(new Date()), calendarDate: startOfMonth(new Date()),
-  showCompleted: false, editingId: null, authMode: 'login',
+  tasks: [],
+  selectedDate: toDateKey(new Date()),
+  calendarDate: startOfMonth(new Date()),
+  showCompleted: false,
+  editingId: null,
+  reminderEnabled: false,
 };
 
 const elements = {
-  calendarMonth: document.querySelector('#calendarMonth'), calendarYear: document.querySelector('#calendarYear'),
-  calendarGrid: document.querySelector('#calendarGrid'), selectedDateTitle: document.querySelector('#selectedDateTitle'),
-  selectedDateMeta: document.querySelector('#selectedDateMeta'), taskForm: document.querySelector('#taskForm'),
-  taskInput: document.querySelector('#taskInput'), taskList: document.querySelector('#taskList'),
-  activeCount: document.querySelector('#activeCount'), progressRing: document.querySelector('#progressRing'),
-  progressValue: document.querySelector('#progressValue'), showCompletedButton: document.querySelector('#showCompletedButton'),
-  historyList: document.querySelector('#historyList'), completedStat: document.querySelector('#completedStat'),
-  activeDaysStat: document.querySelector('#activeDaysStat'), completionStat: document.querySelector('#completionStat'),
-  editDialog: document.querySelector('#editDialog'), editForm: document.querySelector('#editForm'),
-  editInput: document.querySelector('#editInput'), toast: document.querySelector('#toast'),
-  authGate: document.querySelector('#authGate'), authForm: document.querySelector('#authForm'),
-  emailInput: document.querySelector('#emailInput'), passwordInput: document.querySelector('#passwordInput'),
-  authSubmit: document.querySelector('#authSubmit'), authSwitch: document.querySelector('#authSwitch'),
-  authTitle: document.querySelector('#authTitle'), authDescription: document.querySelector('#authDescription'),
-  authMessage: document.querySelector('#authMessage'), authClose: document.querySelector('#authClose'),
-  accountButton: document.querySelector('#accountButton'),
-  accountEmail: document.querySelector('#accountEmail'), systemStatus: document.querySelector('#systemStatus'),
+  calendarMonth: document.querySelector('#calendarMonth'),
+  calendarYear: document.querySelector('#calendarYear'),
+  calendarGrid: document.querySelector('#calendarGrid'),
+  selectedDateTitle: document.querySelector('#selectedDateTitle'),
+  selectedDateMeta: document.querySelector('#selectedDateMeta'),
+  taskForm: document.querySelector('#taskForm'),
+  taskInput: document.querySelector('#taskInput'),
+  taskList: document.querySelector('#taskList'),
+  activeCount: document.querySelector('#activeCount'),
+  progressRing: document.querySelector('#progressRing'),
+  progressValue: document.querySelector('#progressValue'),
+  showCompletedButton: document.querySelector('#showCompletedButton'),
+  historyList: document.querySelector('#historyList'),
+  completedStat: document.querySelector('#completedStat'),
+  activeDaysStat: document.querySelector('#activeDaysStat'),
+  completionStat: document.querySelector('#completionStat'),
+  editDialog: document.querySelector('#editDialog'),
+  editForm: document.querySelector('#editForm'),
+  editInput: document.querySelector('#editInput'),
+  toast: document.querySelector('#toast'),
+  systemStatus: document.querySelector('#systemStatus'),
   footerStatus: document.querySelector('#footerStatus'),
-  themeToggle: document.querySelector('#themeToggle'), themeColor: document.querySelector('meta[name="theme-color"]'),
-  reminderDialog: document.querySelector('#reminderDialog'), reminderForm: document.querySelector('#reminderForm'),
-  reminderEmail: document.querySelector('#reminderEmail'), reminderEnabled: document.querySelector('#reminderEnabled'),
-  reminderTime: document.querySelector('#reminderTime'), reminderTimezone: document.querySelector('#reminderTimezone'),
-  reminderStatus: document.querySelector('#reminderStatus'), testEmailButton: document.querySelector('#testEmailButton'),
-  signOutButton: document.querySelector('#signOutButton'), closeReminder: document.querySelector('#closeReminder'),
-  createTimeScroll: document.querySelector('#createTimeScroll'), createPriorityPicker: document.querySelector('#createPriorityPicker'),
-  editTimeScroll: document.querySelector('#editTimeScroll'), editPriorityPicker: document.querySelector('#editPriorityPicker'),
+  themeToggle: document.querySelector('#themeToggle'),
+  themeColor: document.querySelector('meta[name="theme-color"]'),
+  notificationButton: document.querySelector('#notificationButton'),
+  reminderDialog: document.querySelector('#reminderDialog'),
+  reminderForm: document.querySelector('#reminderForm'),
+  reminderEnabled: document.querySelector('#reminderEnabled'),
+  reminderStatus: document.querySelector('#reminderStatus'),
+  closeReminder: document.querySelector('#closeReminder'),
+  closeReminderTop: document.querySelector('#closeReminderTop'),
+  createTimeScroll: document.querySelector('#createTimeScroll'),
+  createPriorityPicker: document.querySelector('#createPriorityPicker'),
+  editTimeScroll: document.querySelector('#editTimeScroll'),
+  editPriorityPicker: document.querySelector('#editPriorityPicker'),
 };
 
 function toDateKey(date) {
-  const year = date.getFullYear(), month = String(date.getMonth() + 1).padStart(2, '0'), day = String(date.getDate()).padStart(2, '0');
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
-function fromDateKey(key) { const [year, month, day] = key.split('-').map(Number); return new Date(year, month - 1, day); }
-function startOfMonth(date) { return new Date(date.getFullYear(), date.getMonth(), 1); }
-function sameMonth(a, b) { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth(); }
-function escapeHtml(value) { const node = document.createElement('span'); node.textContent = value; return node.innerHTML; }
-function tasksForDate(key) { return state.tasks.filter((task) => task.date === key); }
-function formatDate(date, options) { return new Intl.DateTimeFormat('zh-CN', options).format(date); }
-function formatTime(timestamp) { return timestamp ? new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(timestamp)) : '--:--'; }
-function cacheKey() { return `${CACHE_PREFIX}${state.user?.id || 'guest'}`; }
+
+function fromDateKey(key) {
+  const [year, month, day] = key.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function startOfMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function sameMonth(a, b) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
+}
+
+function escapeHtml(value) {
+  const node = document.createElement('span');
+  node.textContent = value;
+  return node.innerHTML;
+}
+
+function tasksForDate(key) {
+  return state.tasks.filter((task) => task.date === key);
+}
+
+function formatDate(date, options) {
+  return new Intl.DateTimeFormat('zh-CN', options).format(date);
+}
+
+function formatTime(timestamp) {
+  return timestamp
+    ? new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(timestamp))
+    : '--:--';
+}
+
+function createLocalId() {
+  return `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function normalizeTask(task) {
+  return {
+    id: task.id || createLocalId(),
+    title: String(task.title || ''),
+    date: task.date || toDateKey(new Date()),
+    completed: Boolean(task.completed),
+    dueTime: task.dueTime || null,
+    priority: PRIORITIES[task.priority] ? task.priority : 'normal',
+    createdAt: Number(task.createdAt) || Date.now(),
+    completedAt: task.completedAt ? Number(task.completedAt) : null,
+  };
+}
+
+function readTasksFromKey(key) {
+  try {
+    const value = JSON.parse(localStorage.getItem(key));
+    return Array.isArray(value) ? value.map(normalizeTask) : [];
+  } catch {
+    return [];
+  }
+}
+
+function mergeTasks(groups) {
+  const byId = new Map();
+  groups.flat().forEach((task) => {
+    if (!byId.has(task.id)) byId.set(task.id, task);
+  });
+  return [...byId.values()].sort((a, b) => b.createdAt - a.createdAt);
+}
+
+function loadLocalTasks() {
+  const current = readTasksFromKey(STORAGE_KEY);
+  let legacyKeys = [];
+  try {
+    legacyKeys = [LEGACY_STORAGE_KEY, ...Object.keys(localStorage).filter((key) => key.startsWith(CACHE_PREFIX))];
+  } catch {}
+
+  const migrated = legacyKeys.flatMap((key) => readTasksFromKey(key));
+  if (!current.length && !migrated.length) return [];
+
+  const tasks = mergeTasks([current, migrated]);
+  saveTasks(tasks);
+  legacyKeys.forEach((key) => {
+    try { localStorage.removeItem(key); } catch {}
+  });
+  return tasks;
+}
+
+function saveTasks(tasks = state.tasks) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)); } catch {}
+}
 
 function applyTheme(theme) {
   const selected = theme === 'minimal' ? 'minimal' : 'cyber';
   document.documentElement.dataset.theme = selected;
   elements.themeToggle.querySelector('span').textContent = selected === 'cyber' ? '2077' : '山水';
   elements.themeToggle.setAttribute('aria-pressed', String(selected === 'minimal'));
-  elements.themeToggle.title = selected === 'cyber' ? '当前：赛博朋克 2077，点击切换山水主题' : '当前：云雾山水，点击切换赛博朋克主题';
+  elements.themeToggle.title = selected === 'cyber'
+    ? '当前：赛博朋克 2077，点击切换山水主题'
+    : '当前：云雾山水，点击切换赛博朋克主题';
   elements.themeColor.content = selected === 'cyber' ? '#10141b' : '#eee9dd';
   try { localStorage.setItem(THEME_STORAGE_KEY, selected); } catch {}
 }
 
-function setSyncStatus(status, message) {
-  elements.systemStatus.className = `system-status ${status || ''}`;
+function setLocalStatus(message) {
+  elements.systemStatus.className = 'system-status';
   elements.systemStatus.innerHTML = `<i></i> ${message}`;
   elements.footerStatus.textContent = message;
 }
 
-function mapTask(row) {
-  return {
-    id: row.id, title: row.title, date: row.task_date, completed: row.completed,
-    dueTime: row.due_time ? row.due_time.slice(0, 5) : null, priority: row.priority || 'normal',
-    createdAt: new Date(row.created_at).getTime(), completedAt: row.completed_at ? new Date(row.completed_at).getTime() : null,
-  };
+function notificationSupported() {
+  return typeof window !== 'undefined' && 'Notification' in window;
 }
 
-function loadCache() {
-  try { const value = JSON.parse(localStorage.getItem(cacheKey())); return Array.isArray(value) ? value.map((task) => ({ ...task, dueTime: task.dueTime || null, priority: task.priority || 'normal' })) : []; }
-  catch { return []; }
+function loadReminderEnabled() {
+  try { return localStorage.getItem(REMINDER_STORAGE_KEY) === 'true'; } catch { return false; }
 }
-function saveCache() { try { localStorage.setItem(cacheKey(), JSON.stringify(state.tasks)); } catch {} }
-function createLocalId() { return `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`; }
+
+function saveReminderEnabled(enabled) {
+  try { localStorage.setItem(REMINDER_STORAGE_KEY, String(enabled)); } catch {}
+}
+
+function loadReminderSent() {
+  try {
+    const value = JSON.parse(localStorage.getItem(REMINDER_SENT_KEY));
+    return value && typeof value === 'object' ? value : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveReminderSent(sent) {
+  try { localStorage.setItem(REMINDER_SENT_KEY, JSON.stringify(sent)); } catch {}
+}
+
+function updateReminderUI() {
+  const supported = notificationSupported();
+  const permission = supported ? Notification.permission : 'unsupported';
+  const active = state.reminderEnabled && supported && permission === 'granted';
+  elements.reminderEnabled.checked = active;
+  elements.notificationButton.classList.toggle('active', active);
+  elements.notificationButton.setAttribute('aria-pressed', String(active));
+  elements.notificationButton.title = active ? '桌面提醒已开启' : '开启桌面提醒';
+
+  if (!supported) {
+    elements.reminderStatus.textContent = '当前浏览器不支持系统通知，请使用现代浏览器，并通过 localhost 或 https 打开页面。';
+  } else if (permission === 'denied') {
+    elements.reminderStatus.textContent = '通知权限已被拒绝。请在浏览器地址栏的站点设置中允许通知后重试。';
+  } else if (active) {
+    elements.reminderStatus.textContent = '已开启：页面保持打开时，任务到达截止时间会发送桌面通知。';
+  } else if (permission === 'default') {
+    elements.reminderStatus.textContent = '尚未开启。打开开关后会请求系统通知权限。';
+  } else {
+    elements.reminderStatus.textContent = '尚未开启。';
+  }
+}
+
+async function enableDesktopReminders() {
+  if (!notificationSupported()) {
+    elements.reminderEnabled.checked = false;
+    updateReminderUI();
+    return false;
+  }
+
+  let permission = Notification.permission;
+  try {
+    if (permission === 'default') permission = await Notification.requestPermission();
+  } catch {
+    permission = 'denied';
+  }
+
+  if (permission !== 'granted') {
+    state.reminderEnabled = false;
+    saveReminderEnabled(false);
+    syncReminderTimer();
+    updateReminderUI();
+    showToast('未获得通知权限，桌面提醒未开启');
+    return false;
+  }
+
+  state.reminderEnabled = true;
+  saveReminderEnabled(true);
+  syncReminderTimer();
+  updateReminderUI();
+  showToast('桌面提醒已开启');
+  return true;
+}
+
+function disableDesktopReminders() {
+  state.reminderEnabled = false;
+  saveReminderEnabled(false);
+  syncReminderTimer();
+  updateReminderUI();
+  showToast('桌面提醒已关闭');
+}
+
+function openReminderSettings() {
+  updateReminderUI();
+  elements.reminderDialog.showModal();
+}
+
+function closeReminderSettings() {
+  elements.reminderDialog.close();
+}
+
+function syncReminderTimer() {
+  clearInterval(reminderTimer);
+  reminderTimer = null;
+  if (!state.reminderEnabled || !notificationSupported() || Notification.permission !== 'granted') return;
+  checkDueReminders();
+  reminderTimer = setInterval(checkDueReminders, REMINDER_CHECK_INTERVAL);
+}
+
+function sendTaskReminder(task, overdue = false) {
+  const title = overdue ? `任务已到截止时间 ${task.dueTime}` : `任务提醒 ${task.dueTime}`;
+  if (notificationSupported() && Notification.permission === 'granted') {
+    const notification = new Notification(title, {
+      body: task.title,
+      tag: `${task.id}-${task.date}-${task.dueTime}`,
+      requireInteraction: true,
+    });
+    notification.onclick = () => {
+      window.focus();
+      selectDate(task.date);
+      notification.close();
+    };
+    setTimeout(() => notification.close(), 20000);
+    return;
+  }
+  showToast(`${title}：${task.title}`);
+}
+
+function checkDueReminders() {
+  if (!state.reminderEnabled || !notificationSupported() || Notification.permission !== 'granted' || !state.tasks.length) return;
+  const now = new Date();
+  const todayKey = toDateKey(now);
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const sent = loadReminderSent();
+  let changed = false;
+
+  state.tasks.forEach((task) => {
+    if (!task.dueTime || task.completed || task.date !== todayKey) return;
+    const [hour, minute] = task.dueTime.split(':').map(Number);
+    const dueMinutes = hour * 60 + minute;
+    const difference = currentMinutes - dueMinutes;
+    if (difference < 0 || difference > 1) return;
+    const sentKey = `${task.id}:${task.date}:${task.dueTime}`;
+    if (sent[sentKey]) return;
+    sendTaskReminder(task, difference > 0);
+    sent[sentKey] = Date.now();
+    changed = true;
+  });
+
+  if (changed) saveReminderSent(sent);
+}
 
 function renderTimePicker(container, selected = null) {
   const [hour = '09', rawMinute = '00'] = selected?.slice(0, 5).split(':') || [];
-  const minute = MINUTE_OPTIONS.reduce((closest, value) => Math.abs(Number(value) - Number(rawMinute)) < Math.abs(Number(closest) - Number(rawMinute)) ? value : closest, '00');
-  const column = (unit, label, options, value) => `<div class="wheel-group"><span>${label}</span><div class="wheel-column" data-unit="${unit}" role="listbox" aria-label="${label}"><i class="wheel-spacer"></i>${options.map((option, index) => `<button class="wheel-item${option === value ? ' selected' : ''}" data-value="${option}" data-index="${index}" type="button" role="option" aria-selected="${option === value}">${option}</button>`).join('')}<i class="wheel-spacer"></i></div></div>`;
+  const minute = MINUTE_OPTIONS.reduce(
+    (closest, value) => Math.abs(Number(value) - Number(rawMinute)) < Math.abs(Number(closest) - Number(rawMinute)) ? value : closest,
+    '00',
+  );
+  const column = (unit, label, options, value) => `
+    <div class="wheel-group">
+      <span>${label}</span>
+      <div class="wheel-column" data-unit="${unit}" role="listbox" aria-label="${label}">
+        <i class="wheel-spacer"></i>
+        ${options.map((option, index) => `<button class="wheel-item${option === value ? ' selected' : ''}" data-value="${option}" data-index="${index}" type="button" role="option" aria-selected="${option === value}">${option}</button>`).join('')}
+        <i class="wheel-spacer"></i>
+      </div>
+    </div>`;
+
   container.dataset.value = selected ? `${hour}:${minute}` : '';
   container.dataset.ready = 'false';
-  container.innerHTML = `<div class="time-wheel-toolbar"><button class="no-deadline${selected ? '' : ' selected'}" data-action="clear-time" type="button">无截止时间</button><output>${selected ? `${hour}:${minute}` : '未设置'}</output></div><div class="wheel-stage"><div class="wheel-selection" aria-hidden="true"></div>${column('hour', '小时', HOUR_OPTIONS, hour)}<b>:</b>${column('minute', '分钟', MINUTE_OPTIONS, minute)}</div>`;
+  container.innerHTML = `
+    <div class="time-wheel-toolbar">
+      <button class="no-deadline${selected ? '' : ' selected'}" data-action="clear-time" type="button">无截止时间</button>
+      <output>${selected ? `${hour}:${minute}` : '未设置'}</output>
+    </div>
+    <div class="wheel-stage">
+      <div class="wheel-selection" aria-hidden="true"></div>
+      ${column('hour', '小时', HOUR_OPTIONS, hour)}
+      <b>:</b>
+      ${column('minute', '分钟', MINUTE_OPTIONS, minute)}
+    </div>`;
   container.classList.toggle('has-time', Boolean(selected));
+
   requestAnimationFrame(() => {
     container.querySelectorAll('.wheel-column').forEach((wheel) => {
       const target = wheel.querySelector('.wheel-item.selected');
@@ -113,7 +372,11 @@ function updateTimeWheel(container, activate = true) {
     const height = items[0]?.offsetHeight || 46;
     const item = items[Math.max(0, Math.min(items.length - 1, Math.round(wheel.scrollTop / height)))];
     selected[wheel.dataset.unit] = item?.dataset.value || '00';
-    items.forEach((option) => { const active = option === item; option.classList.toggle('selected', active); option.setAttribute('aria-selected', String(active)); });
+    items.forEach((option) => {
+      const active = option === item;
+      option.classList.toggle('selected', active);
+      option.setAttribute('aria-selected', String(active));
+    });
   });
   const value = `${selected.hour || '00'}:${selected.minute || '00'}`;
   container.dataset.value = activate ? value : '';
@@ -124,13 +387,18 @@ function updateTimeWheel(container, activate = true) {
 
 function bindTimeWheel(container) {
   container.addEventListener('click', (event) => {
-    if (event.target.closest('[data-action="clear-time"]')) { updateTimeWheel(container, false); return; }
-    const item = event.target.closest('.wheel-item'); if (!item) return;
+    if (event.target.closest('[data-action="clear-time"]')) {
+      updateTimeWheel(container, false);
+      return;
+    }
+    const item = event.target.closest('.wheel-item');
+    if (!item) return;
     const wheel = item.closest('.wheel-column');
     wheel.scrollTo({ top: Number(item.dataset.index) * item.offsetHeight, behavior: 'smooth' });
   });
   container.addEventListener('scroll', (event) => {
-    const wheel = event.target.closest?.('.wheel-column'); if (!wheel || container.dataset.ready !== 'true') return;
+    const wheel = event.target.closest?.('.wheel-column');
+    if (!wheel || container.dataset.ready !== 'true') return;
     clearTimeout(wheel._selectTimer);
     wheel._selectTimer = setTimeout(() => updateTimeWheel(container, true), 90);
   }, true);
@@ -138,46 +406,23 @@ function bindTimeWheel(container) {
 
 function renderPriorityPicker(container, selected = 'normal') {
   container.dataset.value = selected;
-  container.innerHTML = Object.entries(PRIORITIES).map(([value, meta]) => `<button class="priority-option${value === selected ? ' selected' : ''}" data-value="${value}" type="button" role="radio" aria-checked="${value === selected}">${meta.label}</button>`).join('');
+  container.innerHTML = Object.entries(PRIORITIES)
+    .map(([value, meta]) => `<button class="priority-option${value === selected ? ' selected' : ''}" data-value="${value}" type="button" role="radio" aria-checked="${value === selected}">${meta.label}</button>`)
+    .join('');
 }
 
 function bindPicker(container) {
   container.addEventListener('click', (event) => {
-    const button = event.target.closest('button[data-value]'); if (!button) return;
+    const button = event.target.closest('button[data-value]');
+    if (!button) return;
     container.dataset.value = button.dataset.value;
-    container.querySelectorAll('button').forEach((item) => { const selected = item === button; item.classList.toggle('selected', selected); item.setAttribute('aria-checked', String(selected)); });
+    container.querySelectorAll('button').forEach((item) => {
+      const selected = item === button;
+      item.classList.toggle('selected', selected);
+      item.setAttribute('aria-checked', String(selected));
+    });
     button.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
   });
-}
-
-async function loadCloudTasks({ quiet = false } = {}) {
-  if (!state.user) {
-    state.tasks = loadCache(); render(); setSyncStatus('', 'LOCAL MODE // 未登录，数据仅保存在本机');
-    return;
-  }
-  if (!quiet) setSyncStatus('syncing', 'SYNCING CLOUD DATA');
-  const { data, error } = await supabaseClient.from('tasks').select('*').order('created_at', { ascending: false });
-  if (error) {
-    state.tasks = loadCache(); render(); setSyncStatus('error', 'SYNC FAILED — USING CACHE');
-    if (!quiet) showToast(`同步失败：${error.message}`);
-    return;
-  }
-  state.tasks = data.map(mapTask); saveCache(); render(); setSyncStatus('', 'CLOUD SYSTEM ONLINE');
-}
-
-async function migrateLegacyTasks() {
-  let legacy = [];
-  try { legacy = JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY)) || []; } catch {}
-  if (!legacy.length || !state.user) return;
-  setSyncStatus('syncing', 'MIGRATING LOCAL DATA');
-  const rows = legacy.map((task) => ({
-    user_id: state.user.id, title: task.title, task_date: task.date, completed: Boolean(task.completed),
-    created_at: new Date(task.createdAt || Date.now()).toISOString(),
-    completed_at: task.completedAt ? new Date(task.completedAt).toISOString() : null,
-  }));
-  const { error } = await supabaseClient.from('tasks').insert(rows);
-  if (error) { showToast(`本地任务迁移失败：${error.message}`); return; }
-  localStorage.removeItem(LEGACY_STORAGE_KEY); showToast(`已迁移 ${legacy.length} 项本地任务到云端`);
 }
 
 function renderCalendar() {
@@ -188,16 +433,21 @@ function renderCalendar() {
   const firstWeekday = (view.getDay() + 6) % 7;
   const firstCell = new Date(view.getFullYear(), view.getMonth(), 1 - firstWeekday);
   for (let index = 0; index < 42; index += 1) {
-    const date = new Date(firstCell); date.setDate(firstCell.getDate() + index);
-    const key = toDateKey(date), dailyTasks = tasksForDate(key), button = document.createElement('button');
-    button.type = 'button'; button.className = 'calendar-day';
+    const date = new Date(firstCell);
+    date.setDate(firstCell.getDate() + index);
+    const key = toDateKey(date);
+    const dailyTasks = tasksForDate(key);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'calendar-day';
     if (!sameMonth(date, view)) button.classList.add('outside');
     if (key === toDateKey(new Date())) button.classList.add('today');
     if (key === state.selectedDate) button.classList.add('selected');
     if (dailyTasks.length && dailyTasks.every((task) => task.completed)) button.classList.add('all-done');
     button.innerHTML = `<span>${date.getDate()}</span>${dailyTasks.length ? '<i class="day-dot"></i>' : ''}`;
     button.setAttribute('aria-label', `${formatDate(date, { month: 'long', day: 'numeric' })}，${dailyTasks.length} 项任务`);
-    button.addEventListener('click', () => selectDate(key)); elements.calendarGrid.appendChild(button);
+    button.addEventListener('click', () => selectDate(key));
+    elements.calendarGrid.appendChild(button);
   }
 }
 
@@ -207,7 +457,8 @@ function renderTasks() {
     const priorityDifference = PRIORITIES[b.priority].weight - PRIORITIES[a.priority].weight;
     if (priorityDifference) return priorityDifference;
     if (a.dueTime && b.dueTime) return a.dueTime.localeCompare(b.dueTime);
-    if (a.dueTime) return -1; if (b.dueTime) return 1;
+    if (a.dueTime) return -1;
+    if (b.dueTime) return 1;
     return b.createdAt - a.createdAt;
   });
   const visible = state.showCompleted ? all : all.filter((task) => !task.completed);
@@ -218,224 +469,244 @@ function renderTasks() {
   elements.activeCount.textContent = `${all.length - completedCount} 项待执行`;
   elements.progressValue.textContent = `${progress}%`;
   elements.progressRing.style.setProperty('--progress', `${progress * 3.6}deg`);
-  elements.showCompletedButton.textContent = state.showCompleted ? '隐藏已完成' : `显示已完成${completedCount ? ` (${completedCount})` : ''}`;
+  elements.showCompletedButton.textContent = state.showCompleted
+    ? '隐藏已完成'
+    : `显示已完成${completedCount ? ` (${completedCount})` : ''}`;
   elements.showCompletedButton.setAttribute('aria-pressed', String(state.showCompleted));
+
   if (!visible.length) {
-    elements.taskList.innerHTML = `<div class="empty-state"><div><div class="empty-glyph">[ ]</div><strong>${all.length ? 'ACTIVE QUEUE CLEARED' : 'NO OPERATIONS FOUND'}</strong><span>${all.length ? '这一天的任务已经全部完成。' : '输入一项任务，启动今天的工作。'}</span></div></div>`;
+    elements.taskList.innerHTML = `
+      <div class="empty-state">
+        <div>
+          <div class="empty-glyph">[ ]</div>
+          <strong>${all.length ? 'ACTIVE QUEUE CLEARED' : 'NO OPERATIONS FOUND'}</strong>
+          <span>${all.length ? '这一天的任务已经全部完成。' : '输入一项任务，启动今天的工作。'}</span>
+        </div>
+      </div>`;
     return;
   }
+
   elements.taskList.innerHTML = visible.map((task) => `
     <article class="task-item priority-${task.priority} ${task.completed ? 'completed' : ''}" data-id="${task.id}" role="button" tabindex="0" aria-label="点击修改任务">
       <button class="check-button" data-action="toggle" type="button" aria-label="${task.completed ? '恢复' : '完成'}任务">✓</button>
-      <div class="task-copy"><strong>${escapeHtml(task.title)}</strong><span>${task.completed ? `COMPLETED // ${formatTime(task.completedAt)}` : `CREATED // ${formatTime(task.createdAt)}`}</span><div class="task-meta">${task.dueTime ? `<span class="due-chip">⏱ ${task.dueTime}</span>` : ''}<span class="priority-chip ${task.priority}">${PRIORITIES[task.priority].label}</span></div></div>
+      <div class="task-copy">
+        <strong>${escapeHtml(task.title)}</strong>
+        <span>${task.completed ? `COMPLETED // ${formatTime(task.completedAt)}` : `CREATED // ${formatTime(task.createdAt)}`}</span>
+        <div class="task-meta">
+          ${task.dueTime ? `<span class="due-chip">⏱ ${task.dueTime}</span>` : ''}
+          <span class="priority-chip ${task.priority}">${PRIORITIES[task.priority].label}</span>
+        </div>
+      </div>
       <div class="task-actions"><button class="delete" data-action="delete" type="button" aria-label="删除任务">×</button></div>
     </article>`).join('');
 }
 
 function renderHistory() {
-  const today = new Date(); today.setHours(23, 59, 59, 999);
-  const start = new Date(today); start.setDate(today.getDate() - 29); start.setHours(0, 0, 0, 0);
-  const recent = state.tasks.filter((task) => { const date = fromDateKey(task.date); return date >= start && date <= today; });
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+  const start = new Date(today);
+  start.setDate(today.getDate() - 29);
+  start.setHours(0, 0, 0, 0);
+  const recent = state.tasks.filter((task) => {
+    const date = fromDateKey(task.date);
+    return date >= start && date <= today;
+  });
   const completed = recent.filter((task) => task.completed);
-  const groups = completed.reduce((result, task) => { (result[task.date] ||= []).push(task); return result; }, {});
+  const groups = completed.reduce((result, task) => {
+    (result[task.date] ||= []).push(task);
+    return result;
+  }, {});
   const dates = Object.keys(groups).sort().reverse();
-  elements.completedStat.textContent = completed.length; elements.activeDaysStat.textContent = dates.length;
+  elements.completedStat.textContent = completed.length;
+  elements.activeDaysStat.textContent = dates.length;
   elements.completionStat.textContent = `${recent.length ? Math.round(completed.length / recent.length * 100) : 0}%`;
-  elements.historyList.innerHTML = dates.length ? dates.map((key) => {
-    const date = fromDateKey(key), tasks = groups[key];
-    return `<article class="history-day"><div class="history-date"><strong>${formatDate(date, { month: '2-digit', day: '2-digit' })}</strong><span>${formatDate(date, { weekday: 'short' })}</span></div><div class="history-tasks">${tasks.map((task) => `<span class="history-task">✓ ${escapeHtml(task.title)}${task.dueTime ? ` · ${task.dueTime}` : ''} · ${PRIORITIES[task.priority].label}</span>`).join('')}</div><span class="history-count">${tasks.length} DONE</span></article>`;
-  }).join('') : '<div class="empty-state"><div><div class="empty-glyph">//</div><strong>ARCHIVE IS EMPTY</strong><span>完成的任务会出现在这里。</span></div></div>';
+  elements.historyList.innerHTML = dates.length
+    ? dates.map((key) => {
+      const date = fromDateKey(key);
+      const tasks = groups[key];
+      return `
+        <article class="history-day">
+          <div class="history-date">
+            <strong>${formatDate(date, { month: '2-digit', day: '2-digit' })}</strong>
+            <span>${formatDate(date, { weekday: 'short' })}</span>
+          </div>
+          <div class="history-tasks">${tasks.map((task) => `<span class="history-task">✓ ${escapeHtml(task.title)}${task.dueTime ? ` · ${task.dueTime}` : ''} · ${PRIORITIES[task.priority].label}</span>`).join('')}</div>
+          <span class="history-count">${tasks.length} DONE</span>
+        </article>`;
+    }).join('')
+    : '<div class="empty-state"><div><div class="empty-glyph">//</div><strong>ARCHIVE IS EMPTY</strong><span>完成的任务会出现在这里。</span></div></div>';
 }
 
-function render() { renderCalendar(); renderTasks(); renderHistory(); }
+function render() {
+  renderCalendar();
+  renderTasks();
+  renderHistory();
+}
+
 function selectDate(key) {
-  state.selectedDate = key; state.calendarDate = startOfMonth(fromDateKey(key)); state.showCompleted = false; render();
+  state.selectedDate = key;
+  state.calendarDate = startOfMonth(fromDateKey(key));
+  state.showCompleted = false;
+  render();
   if (innerWidth < 821) document.querySelector('.task-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-async function addTask(title, dueTime, priority) {
-  if (!state.user) {
-    state.tasks.unshift({
-      id: createLocalId(), title: title.trim(), date: state.selectedDate, completed: false,
-      dueTime: dueTime || null, priority, createdAt: Date.now(), completedAt: null,
-    });
-    saveCache(); render(); setSyncStatus('', 'LOCAL MODE // 未登录，数据仅保存在本机'); showToast('任务已保存到本地');
-    return true;
-  }
-  setSyncStatus('syncing', 'WRITING TO CLOUD');
-  const { data, error } = await supabaseClient.from('tasks').insert({ user_id: state.user.id, title: title.trim(), task_date: state.selectedDate, due_time: dueTime || null, priority }).select().single();
-  if (error) { setSyncStatus('error', 'SYNC FAILED'); showToast(`添加失败：${error.message}`); return false; }
-  state.tasks.unshift(mapTask(data)); saveCache(); render(); setSyncStatus('', 'CLOUD SYSTEM ONLINE'); showToast('任务已同步到云端'); return true;
-}
-
-async function toggleTask(id) {
-  const task = state.tasks.find((item) => item.id === id); if (!task) return;
-  const nextCompleted = !task.completed, completedAt = nextCompleted ? new Date().toISOString() : null;
-  if (!state.user) {
-    task.completed = nextCompleted; task.completedAt = completedAt ? new Date(completedAt).getTime() : null;
-    saveCache(); render();
-    showToast(nextCompleted ? '任务完成，已保存到本地' : '任务已恢复，保存在本地');
-    return;
-  }
-  const { data, error } = await supabaseClient.from('tasks').update({ completed: nextCompleted, completed_at: completedAt, updated_at: new Date().toISOString() }).eq('id', id).select().single();
-  if (error) { showToast(`更新失败：${error.message}`); return; }
-  Object.assign(task, mapTask(data)); saveCache(); render(); if (task.completed) showToast('任务完成，已同步到档案');
-}
-
-async function deleteTask(id) {
-  const task = state.tasks.find((item) => item.id === id);
-  if (!task || !confirm(`确定删除“${task.title}”吗？此操作无法撤销。`)) return;
-  if (!state.user) {
-    state.tasks = state.tasks.filter((item) => item.id !== id); saveCache(); render(); showToast('任务已从本地删除');
-    return;
-  }
-  const { error } = await supabaseClient.from('tasks').delete().eq('id', id);
-  if (error) { showToast(`删除失败：${error.message}`); return; }
-  state.tasks = state.tasks.filter((item) => item.id !== id); saveCache(); render(); showToast('任务已从云端删除');
-}
-
-function openEdit(id) {
-  const task = state.tasks.find((item) => item.id === id); if (!task) return;
-  state.editingId = id; elements.editInput.value = task.title;
-  elements.editDialog.showModal(); renderTimePicker(elements.editTimeScroll, task.dueTime); renderPriorityPicker(elements.editPriorityPicker, task.priority);
-  requestAnimationFrame(() => elements.editInput.select());
-}
-function showToast(message) {
-  elements.toast.textContent = message; elements.toast.classList.add('show');
-  clearTimeout(showToast.timer); showToast.timer = setTimeout(() => elements.toast.classList.remove('show'), 2600);
-}
-
-async function openReminderSettings() {
-  if (!state.user) return;
-  elements.reminderEmail.value = state.user.email || '';
-  elements.reminderEnabled.checked = false; elements.reminderTime.value = '09:00'; elements.reminderTimezone.value = 'Asia/Shanghai';
-  elements.reminderStatus.textContent = '正在读取云端设置...'; elements.reminderDialog.showModal();
-  const { data, error } = await supabaseClient.from('reminder_settings').select('*').eq('user_id', state.user.id).maybeSingle();
-  if (error) { elements.reminderStatus.textContent = `读取失败：${error.message}`; return; }
-  if (!data) { elements.reminderStatus.textContent = '尚未配置。保存后定时任务会自动生效。'; return; }
-  elements.reminderEnabled.checked = data.enabled;
-  elements.reminderTime.value = data.reminder_time.slice(0, 5);
-  elements.reminderTimezone.value = data.timezone;
-  elements.reminderStatus.textContent = data.last_sent_on ? `上次发送日期：${data.last_sent_on}` : '尚未发送过每日提醒';
-}
-
-async function saveReminderSettings(showSuccess = true) {
-  if (!state.user) return false;
-  const payload = {
-    user_id: state.user.id, email: state.user.email, enabled: elements.reminderEnabled.checked,
-    reminder_time: `${elements.reminderTime.value}:00`, timezone: elements.reminderTimezone.value,
-    updated_at: new Date().toISOString(),
-  };
-  const { error } = await supabaseClient.from('reminder_settings').upsert(payload, { onConflict: 'user_id' });
-  if (error) { elements.reminderStatus.textContent = `保存失败：${error.message}`; return false; }
-  elements.reminderStatus.textContent = payload.enabled
-    ? `已启用：每天 ${elements.reminderTime.value}（${elements.reminderTimezone.selectedOptions[0].textContent}）`
-    : '每日邮件提醒已关闭';
-  if (showSuccess) showToast('邮件提醒设置已保存');
+function addTask(title, dueTime, priority) {
+  state.tasks.unshift({
+    id: createLocalId(),
+    title: title.trim(),
+    date: state.selectedDate,
+    completed: false,
+    dueTime: dueTime || null,
+    priority,
+    createdAt: Date.now(),
+    completedAt: null,
+  });
+  saveTasks();
+  syncReminderTimer();
+  render();
+  showToast('任务已保存到本地');
   return true;
 }
 
-async function sendTestEmail() {
-  elements.testEmailButton.disabled = true; elements.reminderStatus.textContent = '正在生成并发送测试邮件...';
-  if (!await saveReminderSettings(false)) { elements.testEmailButton.disabled = false; return; }
-  const { data, error } = await supabaseClient.functions.invoke('send-task-reminders', { body: { test: true } });
-  elements.testEmailButton.disabled = false;
-  const result = data?.results?.[0];
-  if (error || !data?.ok || result?.status !== 'sent') {
-    const detail = result?.detail || error?.message || data?.error || '未知错误';
-    elements.reminderStatus.textContent = `测试邮件发送失败：${detail}`; return;
+function toggleTask(id) {
+  const task = state.tasks.find((item) => item.id === id);
+  if (!task) return;
+  task.completed = !task.completed;
+  task.completedAt = task.completed ? Date.now() : null;
+  saveTasks();
+  syncReminderTimer();
+  render();
+  showToast(task.completed ? '任务完成，已保存到本地' : '任务已恢复，保存在本地');
+}
+
+function deleteTask(id) {
+  const task = state.tasks.find((item) => item.id === id);
+  if (!task || !confirm(`确定删除“${task.title}”吗？此操作无法撤销。`)) return;
+  state.tasks = state.tasks.filter((item) => item.id !== id);
+  saveTasks();
+  syncReminderTimer();
+  render();
+  showToast('任务已从本地删除');
+}
+
+function openEdit(id) {
+  const task = state.tasks.find((item) => item.id === id);
+  if (!task) return;
+  state.editingId = id;
+  elements.editInput.value = task.title;
+  elements.editDialog.showModal();
+  renderTimePicker(elements.editTimeScroll, task.dueTime);
+  renderPriorityPicker(elements.editPriorityPicker, task.priority);
+  requestAnimationFrame(() => elements.editInput.select());
+}
+
+function showToast(message) {
+  elements.toast.textContent = message;
+  elements.toast.classList.add('show');
+  clearTimeout(showToast.timer);
+  showToast.timer = setTimeout(() => elements.toast.classList.remove('show'), 2600);
+}
+
+elements.taskForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const title = elements.taskInput.value.trim();
+  if (!title) return;
+  if (addTask(title, elements.createTimeScroll.dataset.value, elements.createPriorityPicker.dataset.value)) {
+    elements.taskInput.value = '';
+    renderTimePicker(elements.createTimeScroll);
+    renderPriorityPicker(elements.createPriorityPicker);
   }
-  elements.reminderStatus.textContent = `测试邮件已发送至 ${state.user.email}`; showToast('测试邮件发送成功');
-}
+  elements.taskInput.focus();
+});
 
-function updateAuthUI() {
-  const registering = state.authMode === 'register';
-  elements.authTitle.textContent = registering ? '创建云端身份' : '连接你的工作档案';
-  elements.authDescription.textContent = registering ? '注册后请在邮箱中确认账号，再返回这里登录。' : '登录后，任务将在电脑和手机之间同步。';
-  elements.authSubmit.textContent = registering ? '创建云端账号' : '登录云端终端';
-  elements.authSwitch.textContent = registering ? '已有账号？返回登录' : '还没有账号？创建账号';
-  elements.passwordInput.autocomplete = registering ? 'new-password' : 'current-password'; elements.authMessage.textContent = '';
-}
-
-async function handleSession(session) {
-  state.user = session?.user || null;
-  elements.authGate.hidden = true;
-  elements.accountButton.hidden = false;
-  elements.accountButton.querySelector('b').textContent = state.user ? '设置' : '登录';
-  elements.accountButton.title = state.user ? '账号与邮件提醒' : '登录后可将任务同步到云端';
-  if (!state.user) {
-    elements.accountEmail.textContent = '未登录 · 本地模式';
-    state.tasks = loadCache(); render(); setSyncStatus('', 'LOCAL MODE // 未登录，数据仅保存在本机');
+elements.taskList.addEventListener('click', (event) => {
+  const item = event.target.closest('.task-item');
+  if (!item) return;
+  const button = event.target.closest('button[data-action]');
+  if (button?.dataset.action === 'toggle') {
+    toggleTask(item.dataset.id);
     return;
   }
-  elements.accountEmail.textContent = state.user.email; await migrateLegacyTasks(); await loadCloudTasks();
-}
-
-function openAuthGate() { elements.authGate.hidden = false; elements.authMessage.textContent = ''; requestAnimationFrame(() => elements.emailInput.focus()); }
-function closeAuthGate() { elements.authGate.hidden = true; }
-
-elements.authForm.addEventListener('submit', async (event) => {
-  event.preventDefault(); elements.authSubmit.disabled = true; elements.authMessage.textContent = '正在建立安全连接...';
-  const email = elements.emailInput.value.trim(), password = elements.passwordInput.value;
-  const result = state.authMode === 'register'
-    ? await supabaseClient.auth.signUp({ email, password, options: { emailRedirectTo: `${location.origin}${location.pathname}` } })
-    : await supabaseClient.auth.signInWithPassword({ email, password });
-  elements.authSubmit.disabled = false;
-  if (result.error) { elements.authMessage.textContent = `错误：${result.error.message}`; return; }
-  if (state.authMode === 'register' && !result.data.session) elements.authMessage.textContent = '注册成功，请检查邮箱并点击确认链接。';
-});
-elements.authSwitch.addEventListener('click', () => { state.authMode = state.authMode === 'login' ? 'register' : 'login'; updateAuthUI(); });
-elements.accountButton.addEventListener('click', () => { if (state.user) openReminderSettings(); else openAuthGate(); });
-elements.authClose.addEventListener('click', closeAuthGate);
-elements.themeToggle.addEventListener('click', () => applyTheme(document.documentElement.dataset.theme === 'cyber' ? 'minimal' : 'cyber'));
-elements.closeReminder.addEventListener('click', () => elements.reminderDialog.close());
-elements.reminderForm.addEventListener('submit', async (event) => { event.preventDefault(); if (await saveReminderSettings()) elements.reminderDialog.close(); });
-elements.testEmailButton.addEventListener('click', sendTestEmail);
-elements.signOutButton.addEventListener('click', async () => { elements.reminderDialog.close(); await supabaseClient.auth.signOut(); showToast('已安全退出云端终端'); });
-elements.taskForm.addEventListener('submit', async (event) => {
-  event.preventDefault(); const title = elements.taskInput.value.trim(); if (!title) return;
-  elements.taskInput.disabled = true;
-  if (await addTask(title, elements.createTimeScroll.dataset.value, elements.createPriorityPicker.dataset.value)) {
-    elements.taskInput.value = ''; renderTimePicker(elements.createTimeScroll); renderPriorityPicker(elements.createPriorityPicker);
+  if (button?.dataset.action === 'delete') {
+    deleteTask(item.dataset.id);
+    return;
   }
-  elements.taskInput.disabled = false; elements.taskInput.focus();
-});
-elements.taskList.addEventListener('click', (event) => {
-  const item = event.target.closest('.task-item'); if (!item) return;
-  const button = event.target.closest('button[data-action]');
-  if (button?.dataset.action === 'toggle') { toggleTask(item.dataset.id); return; }
-  if (button?.dataset.action === 'delete') { deleteTask(item.dataset.id); return; }
   openEdit(item.dataset.id);
 });
+
 elements.taskList.addEventListener('keydown', (event) => {
   if (!['Enter', ' '].includes(event.key) || event.target.closest('button')) return;
-  const item = event.target.closest('.task-item'); if (!item) return;
-  event.preventDefault(); openEdit(item.dataset.id);
-});
-elements.showCompletedButton.addEventListener('click', () => { state.showCompleted = !state.showCompleted; renderTasks(); });
-document.querySelector('#previousMonth').addEventListener('click', () => { state.calendarDate = new Date(state.calendarDate.getFullYear(), state.calendarDate.getMonth() - 1, 1); renderCalendar(); });
-document.querySelector('#nextMonth').addEventListener('click', () => { state.calendarDate = new Date(state.calendarDate.getFullYear(), state.calendarDate.getMonth() + 1, 1); renderCalendar(); });
-document.querySelector('#todayButton').addEventListener('click', () => selectDate(toDateKey(new Date())));
-document.querySelector('.brand').addEventListener('click', (event) => { event.preventDefault(); selectDate(toDateKey(new Date())); });
-document.querySelector('#cancelEdit').addEventListener('click', () => elements.editDialog.close());
-elements.editForm.addEventListener('submit', async (event) => {
-  event.preventDefault(); const title = elements.editInput.value.trim(); if (!title) return;
-  const dueTime = elements.editTimeScroll.dataset.value || null;
-  const priority = elements.editPriorityPicker.dataset.value;
-  if (!state.user) {
-    const index = state.tasks.findIndex((task) => task.id === state.editingId);
-    if (index >= 0) state.tasks[index] = { ...state.tasks[index], title, dueTime, priority };
-    saveCache(); elements.editDialog.close(); render(); showToast('修改已保存到本地');
-    return;
-  }
-  const { data, error } = await supabaseClient.from('tasks').update({ title, due_time: dueTime, priority, updated_at: new Date().toISOString() }).eq('id', state.editingId).select().single();
-  if (error) { showToast(`修改失败：${error.message}`); return; }
-  const index = state.tasks.findIndex((task) => task.id === state.editingId); if (index >= 0) state.tasks[index] = mapTask(data);
-  saveCache(); elements.editDialog.close(); render(); showToast('修改已同步');
+  const item = event.target.closest('.task-item');
+  if (!item) return;
+  event.preventDefault();
+  openEdit(item.dataset.id);
 });
 
-document.addEventListener('visibilitychange', () => { if (!document.hidden && state.user) loadCloudTasks({ quiet: true }); });
-supabaseClient.auth.onAuthStateChange((_event, session) => { setTimeout(() => handleSession(session), 0); });
-bindTimeWheel(elements.createTimeScroll); bindPicker(elements.createPriorityPicker); bindTimeWheel(elements.editTimeScroll); bindPicker(elements.editPriorityPicker);
-renderTimePicker(elements.createTimeScroll); renderPriorityPicker(elements.createPriorityPicker); applyTheme(document.documentElement.dataset.theme);
-updateAuthUI(); handleSession(null);
+elements.showCompletedButton.addEventListener('click', () => {
+  state.showCompleted = !state.showCompleted;
+  renderTasks();
+});
+
+document.querySelector('#previousMonth').addEventListener('click', () => {
+  state.calendarDate = new Date(state.calendarDate.getFullYear(), state.calendarDate.getMonth() - 1, 1);
+  renderCalendar();
+});
+
+document.querySelector('#nextMonth').addEventListener('click', () => {
+  state.calendarDate = new Date(state.calendarDate.getFullYear(), state.calendarDate.getMonth() + 1, 1);
+  renderCalendar();
+});
+
+document.querySelector('#todayButton').addEventListener('click', () => selectDate(toDateKey(new Date())));
+document.querySelector('.brand').addEventListener('click', (event) => {
+  event.preventDefault();
+  selectDate(toDateKey(new Date()));
+});
+document.querySelector('#cancelEdit').addEventListener('click', () => elements.editDialog.close());
+elements.themeToggle.addEventListener('click', () => {
+  applyTheme(document.documentElement.dataset.theme === 'cyber' ? 'minimal' : 'cyber');
+});
+elements.notificationButton.addEventListener('click', openReminderSettings);
+elements.closeReminder.addEventListener('click', closeReminderSettings);
+elements.closeReminderTop.addEventListener('click', closeReminderSettings);
+elements.reminderForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  closeReminderSettings();
+});
+elements.reminderEnabled.addEventListener('change', (event) => {
+  if (event.target.checked) enableDesktopReminders();
+  else disableDesktopReminders();
+});
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) checkDueReminders();
+});
+
+elements.editForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const title = elements.editInput.value.trim();
+  if (!title) return;
+  const dueTime = elements.editTimeScroll.dataset.value || null;
+  const priority = elements.editPriorityPicker.dataset.value;
+  const index = state.tasks.findIndex((task) => task.id === state.editingId);
+  if (index >= 0) state.tasks[index] = { ...state.tasks[index], title, dueTime, priority };
+  saveTasks();
+  syncReminderTimer();
+  elements.editDialog.close();
+  render();
+  showToast('修改已保存到本地');
+});
+
+bindTimeWheel(elements.createTimeScroll);
+bindPicker(elements.createPriorityPicker);
+bindTimeWheel(elements.editTimeScroll);
+bindPicker(elements.editPriorityPicker);
+renderTimePicker(elements.createTimeScroll);
+renderPriorityPicker(elements.createPriorityPicker);
+applyTheme(document.documentElement.dataset.theme);
+state.tasks = loadLocalTasks();
+state.reminderEnabled = loadReminderEnabled();
+syncReminderTimer();
+updateReminderUI();
+setLocalStatus('LOCAL STORAGE ONLINE');
+render();

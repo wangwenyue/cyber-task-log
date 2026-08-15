@@ -1,19 +1,18 @@
-# NEON LOG
+# NEON LOG // LOCAL ONLY
 
-赛博朋克风格的个人每日任务与工作记录应用。纯静态页面，无需构建工具，可直接发布到 GitHub Pages。
+赛博朋克风格的个人每日任务与工作记录应用。这是纯本地离线版，不依赖账号、云服务或外部网络。
 
 ## 功能
 
+- 无需登录，打开页面即可使用
 - 在日历中选择日期并添加任务，可通过小时/分钟双滚轮设置截止时间和紧急程度
 - 支持明亮的赛博朋克 2077 与云雾水墨山水主题，并自动记住选择
 - 完成任务后自动从当前队列隐藏
 - 显示、恢复、编辑或删除任务
 - 汇总最近 30 天完成的工作、活跃天数和完成率
-- 使用 Supabase Auth 登录，任务存储在云端 Postgres
-- 同一账号可在电脑和手机间同步任务
-- 首次登录时自动迁移旧版浏览器本地任务
-- 可在账号设置中配置每日待办邮件、发送时间和时区
-- Supabase Cron 每分钟检查提醒，由 Edge Function 通过 Resend 发送（邮件中包含截止时间和紧急程度）
+- 支持任务到期桌面提醒：页面保持打开时，到截止时间会发送浏览器系统通知
+- 所有数据只保存在当前浏览器的 `localStorage` 中，不会上传网络
+- 首次启动时自动迁移旧版本地任务和旧的本地缓存
 - 适配桌面和手机屏幕
 
 ## 本地预览
@@ -26,24 +25,38 @@ python3 -m http.server 8000
 
 然后打开 `http://localhost:8000/`。
 
+## 桌面 App
+
+安装依赖后，可直接以独立桌面窗口运行，不需要打开浏览器：
+
+```bash
+npm install
+npm start
+```
+
+生成当前系统的安装包：
+
+```bash
+npm run dist
+```
+
+打包结果位于 `dist/`。macOS 会生成 `.dmg` 和 `.zip`，Windows 会生成安装版与便携版，Linux 会生成 AppImage。未签名的 macOS 安装包首次打开时，可能需要在“系统设置 → 隐私与安全性”中确认允许打开。
+
+## 数据说明
+
+- 任务数据保存在浏览器本地，存储键为 `neon-log-local-tasks`
+- 清除浏览器站点数据会删除这些任务，请在需要时提前备份
+- 不同浏览器、不同设备之间不会自动同步
+- 桌面提醒需要页面保持打开，并且当前浏览器允许通知权限；关闭页面后不会后台提醒
+- 仓库中的 `supabase/` 目录属于云端版本遗留文件，本地版不会加载或使用
+
 ## 发布到 GitHub Pages
 
 推荐将本目录内容放进一个新的 GitHub 仓库，例如 `neon-log`：
 
-1. 推送到仓库的 `main` 分支。
-2. 进入 **Settings → Pages**。
-3. 在 **Build and deployment** 中选择 **Deploy from a branch**。
-4. 选择 `main` 和 `/(root)`，保存。
+1. 推送到仓库的 `main` 分支
+2. 进入 **Settings → Pages**
+3. 在 **Build and deployment** 中选择 **Deploy from a branch**
+4. 选择 `main` 和 `/(root)`，保存
 
 发布地址通常为 `https://<用户名>.github.io/neon-log/`。
-
-## 云端配置
-
-前端通过 Supabase publishable key 连接云端，数据访问由 Auth 与 Row Level Security 隔离。`service_role` 或 secret key 不得写入前端文件。
-
-邮件服务端密钥保存在 Supabase Edge Function Secrets：
-
-- `RESEND_API_KEY`
-- `EMAIL_FROM`
-
-数据库迁移位于 `supabase/migrations/`，邮件函数位于 `supabase/functions/send-task-reminders/`。
