@@ -2,6 +2,7 @@ const SUPABASE_URL = 'https://osgsjjqidodyjreslrbv.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_nS9Bu52AEVM2i8kYPnWb0A_yIT4p6XX';
 const LEGACY_STORAGE_KEY = 'neon-log-tasks-v1';
 const CACHE_PREFIX = 'neon-log-cloud-cache-';
+const THEME_STORAGE_KEY = 'neon-log-theme';
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 const PRIORITIES = {
   normal: { label: '普通', weight: 0 }, important: { label: '重要', weight: 1 },
@@ -33,6 +34,7 @@ const elements = {
   authMessage: document.querySelector('#authMessage'), accountButton: document.querySelector('#accountButton'),
   accountEmail: document.querySelector('#accountEmail'), systemStatus: document.querySelector('#systemStatus'),
   footerStatus: document.querySelector('#footerStatus'),
+  themeToggle: document.querySelector('#themeToggle'), themeColor: document.querySelector('meta[name="theme-color"]'),
   reminderDialog: document.querySelector('#reminderDialog'), reminderForm: document.querySelector('#reminderForm'),
   reminderEmail: document.querySelector('#reminderEmail'), reminderEnabled: document.querySelector('#reminderEnabled'),
   reminderTime: document.querySelector('#reminderTime'), reminderTimezone: document.querySelector('#reminderTimezone'),
@@ -54,6 +56,16 @@ function tasksForDate(key) { return state.tasks.filter((task) => task.date === k
 function formatDate(date, options) { return new Intl.DateTimeFormat('zh-CN', options).format(date); }
 function formatTime(timestamp) { return timestamp ? new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(timestamp)) : '--:--'; }
 function cacheKey() { return `${CACHE_PREFIX}${state.user?.id || 'guest'}`; }
+
+function applyTheme(theme) {
+  const selected = theme === 'minimal' ? 'minimal' : 'cyber';
+  document.documentElement.dataset.theme = selected;
+  elements.themeToggle.querySelector('span').textContent = selected === 'cyber' ? '2077' : '简约';
+  elements.themeToggle.setAttribute('aria-pressed', String(selected === 'minimal'));
+  elements.themeToggle.title = selected === 'cyber' ? '当前：赛博朋克 2077，点击切换简约主题' : '当前：简约素白，点击切换赛博朋克主题';
+  elements.themeColor.content = selected === 'cyber' ? '#10141b' : '#f7f7f5';
+  try { localStorage.setItem(THEME_STORAGE_KEY, selected); } catch {}
+}
 
 function setSyncStatus(status, message) {
   elements.systemStatus.className = `system-status ${status || ''}`;
@@ -341,6 +353,7 @@ elements.authForm.addEventListener('submit', async (event) => {
 });
 elements.authSwitch.addEventListener('click', () => { state.authMode = state.authMode === 'login' ? 'register' : 'login'; updateAuthUI(); });
 elements.accountButton.addEventListener('click', openReminderSettings);
+elements.themeToggle.addEventListener('click', () => applyTheme(document.documentElement.dataset.theme === 'cyber' ? 'minimal' : 'cyber'));
 elements.closeReminder.addEventListener('click', () => elements.reminderDialog.close());
 elements.reminderForm.addEventListener('submit', async (event) => { event.preventDefault(); if (await saveReminderSettings()) elements.reminderDialog.close(); });
 elements.testEmailButton.addEventListener('click', sendTestEmail);
@@ -382,5 +395,5 @@ elements.editForm.addEventListener('submit', async (event) => {
 document.addEventListener('visibilitychange', () => { if (!document.hidden && state.user) loadCloudTasks({ quiet: true }); });
 supabaseClient.auth.onAuthStateChange((_event, session) => { setTimeout(() => handleSession(session), 0); });
 bindTimeWheel(elements.createTimeScroll); bindPicker(elements.createPriorityPicker); bindTimeWheel(elements.editTimeScroll); bindPicker(elements.editPriorityPicker);
-renderTimePicker(elements.createTimeScroll); renderPriorityPicker(elements.createPriorityPicker);
+renderTimePicker(elements.createTimeScroll); renderPriorityPicker(elements.createPriorityPicker); applyTheme(document.documentElement.dataset.theme);
 updateAuthUI(); render();

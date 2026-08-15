@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#080b12">
   <title>NEON LOG // 每日任务终端</title>
-  <link rel="stylesheet" href="styles.css?v=5.1">
+  <script>try{const t=localStorage.getItem('neon-log-theme');document.documentElement.dataset.theme=t==='minimal'?'minimal':'cyber'}catch{document.documentElement.dataset.theme='cyber'}</script>
+  <link rel="stylesheet" href="styles.css?v=6.0">
 </head>
 <body>
   <div class="cyber-flow" aria-hidden="true">
@@ -26,6 +27,7 @@
         <span><strong>NEON LOG</strong><small>PERSONAL WORK TERMINAL</small></span>
       </a>
       <div class="system-status" id="systemStatus"><i></i> CLOUD LINK STANDBY</div>
+      <button class="theme-toggle" id="themeToggle" type="button" aria-label="切换界面主题" title="切换界面主题"><i></i><span>2077</span></button>
       <button class="account-button" id="accountButton" type="button" hidden>
         <span id="accountEmail"></span><b>设置</b>
       </button>
@@ -102,7 +104,7 @@
       <div class="history-list" id="historyList"></div>
     </section>
 
-    <footer><span>NEON LOG v5.1</span><span id="footerStatus">SUPABASE CLOUD SYNC</span></footer>
+    <footer><span>NEON LOG v6.0</span><span id="footerStatus">SUPABASE CLOUD SYNC</span></footer>
   </main>
 
   <section class="auth-gate" id="authGate" aria-labelledby="authTitle">
@@ -171,6 +173,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js?v=5.1"></script>
+  <script src="app.js?v=6.0"></script>
 </body>
 </html>

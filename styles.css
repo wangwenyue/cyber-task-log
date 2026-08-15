@@ -117,3 +117,62 @@ button,input,.task-item{touch-action:manipulation;-webkit-tap-highlight-color:tr
 .task-actions .delete{width:38px;height:38px;border:1px solid rgba(255,79,163,.75);color:#ff8bc2;background:rgba(255,79,163,.12);font:500 25px/1 "IBM Plex Mono";box-shadow:inset 0 0 12px rgba(255,79,163,.08),0 0 10px rgba(255,79,163,.1)}
 .task-actions .delete:hover,.task-actions .delete:focus-visible{outline:0;color:#fff;border-color:var(--pink);background:rgba(255,79,163,.3);box-shadow:0 0 18px rgba(255,79,163,.35)}
 @media(max-width:560px){.task-actions .delete{width:42px;height:42px;font-size:28px}.task-item{gap:10px;padding-right:9px}}
+
+/* Theme switcher and brighter 2077 palette */
+html[data-theme="cyber"]{--bg:#090b0f;--panel:#11151c;--panel-2:#171c24;--line:#39414a;--text:#f5f8f3;--muted:#98a2a7;--cyan:#00f0ff;--pink:#ff2a6d;--yellow:#fcee0a;--danger:#ff365e;--shadow:0 24px 75px rgba(0,0,0,.48)}
+.theme-toggle{display:flex;align-items:center;justify-content:center;gap:8px;min-width:76px;height:38px;padding:0 11px;border:1px solid var(--yellow);color:var(--yellow);background:rgba(252,238,10,.07);font:600 11px "IBM Plex Mono";cursor:pointer;box-shadow:0 0 14px rgba(252,238,10,.08)}
+.theme-toggle i{width:10px;height:10px;border:2px solid currentColor;border-radius:50%;box-shadow:0 0 8px currentColor}.theme-toggle:hover{color:#0a0b0d;background:var(--yellow)}
+html[data-theme="cyber"] .brand-mark{background:var(--yellow);box-shadow:0 0 25px rgba(252,238,10,.36)}
+html[data-theme="cyber"] .panel{border-color:#3d4650;background:linear-gradient(145deg,rgba(23,28,36,.91),rgba(10,14,20,.94))}
+html[data-theme="cyber"] .panel::before{width:76px;height:2px;background:var(--yellow);box-shadow:0 0 12px rgba(252,238,10,.6)}
+html[data-theme="cyber"] .task-panel::before{background:var(--cyan);box-shadow:0 0 12px rgba(0,240,255,.55)}
+html[data-theme="cyber"] .panel-label{color:var(--yellow)}
+html[data-theme="cyber"] .task-entry-row>button{background:var(--yellow);box-shadow:inset 0 -3px 0 rgba(255,42,109,.35)}
+html[data-theme="cyber"] .calendar-day.selected{background:var(--yellow);border-color:var(--yellow);box-shadow:0 0 18px rgba(252,238,10,.3)}
+html[data-theme="cyber"] .task-form:focus-within{border-color:var(--yellow);box-shadow:0 0 0 3px rgba(252,238,10,.08)}
+html[data-theme="cyber"] .cyber-flow{filter:saturate(1.32) brightness(1.15)}
+
+/* Minimal white theme */
+html[data-theme="minimal"]{color-scheme:light;--bg:#f5f5f2;--panel:#fff;--panel-2:#fafaf8;--line:#d9ddd9;--text:#171a18;--muted:#68716c;--cyan:#176b5b;--pink:#c74768;--yellow:#a66b00;--danger:#c92d4d;--shadow:0 12px 40px rgba(28,36,31,.07)}
+html[data-theme="minimal"] body{color:var(--text);background:#f5f5f2}
+html[data-theme="minimal"] .cyber-flow,html[data-theme="minimal"] .noise,html[data-theme="minimal"] .scanline{display:none}
+html[data-theme="minimal"] .panel{border-color:#dfe3df;background:#fff;box-shadow:var(--shadow);backdrop-filter:none;-webkit-backdrop-filter:none}
+html[data-theme="minimal"] .panel::before{width:42px;height:2px;background:#202521;box-shadow:none}
+html[data-theme="minimal"] .panel-label{color:#4f5a54;letter-spacing:.13em}
+html[data-theme="minimal"] .topbar{border-color:#d9ddd9}
+html[data-theme="minimal"] .brand-mark{color:#fff;background:#1f2924;box-shadow:none}
+html[data-theme="minimal"] .brand small,html[data-theme="minimal"] .system-status,html[data-theme="minimal"] footer{color:#7b847f}
+html[data-theme="minimal"] .system-status i{background:#4d8c72;box-shadow:none;animation:none}
+html[data-theme="minimal"] .theme-toggle{color:#202521;border-color:#cbd1cd;background:#fff;box-shadow:none}
+html[data-theme="minimal"] .theme-toggle i{border-radius:2px;box-shadow:none;background:#202521}
+html[data-theme="minimal"] .theme-toggle:hover{color:#fff;background:#202521}
+html[data-theme="minimal"] .today-button,html[data-theme="minimal"] .calendar-nav button,html[data-theme="minimal"] .account-button{color:#29312d;border-color:#d4d9d5;background:#fff}
+html[data-theme="minimal"] .account-button span,html[data-theme="minimal"] .account-button b{color:#5f6963}
+html[data-theme="minimal"] .calendar-heading span,html[data-theme="minimal"] .task-heading p,html[data-theme="minimal"] .task-toolbar,html[data-theme="minimal"] .task-toolbar button,html[data-theme="minimal"] .calendar-legend{color:#707a74}
+html[data-theme="minimal"] .weekdays{color:#8a928e}
+html[data-theme="minimal"] .calendar-day{color:#39423d}html[data-theme="minimal"] .calendar-day.outside{color:#b5bbb7}html[data-theme="minimal"] .calendar-day.today{color:#176b5b;border-color:#76a89d}
+html[data-theme="minimal"] .calendar-day.selected{color:#fff;background:#202521;border-color:#202521;box-shadow:none}
+html[data-theme="minimal"] .progress-ring{background:radial-gradient(circle closest-side,#fff 78%,transparent 80%),conic-gradient(#202521 var(--progress),#e5e8e5 0)}
+html[data-theme="minimal"] .task-form{border-color:#d9dedb;background:#fff;box-shadow:none}
+html[data-theme="minimal"] .task-form:focus-within{border-color:#818d86;box-shadow:0 0 0 3px rgba(32,37,33,.05)}
+html[data-theme="minimal"] .task-entry-row{border-bottom:1px solid #e4e7e5}html[data-theme="minimal"] .prompt{color:#4c5a53}html[data-theme="minimal"] .task-form input{color:#171a18}html[data-theme="minimal"] .task-form input::placeholder{color:#9ba39f}
+html[data-theme="minimal"] .task-entry-row>button{color:#fff;background:#202521}
+html[data-theme="minimal"] .task-options{border-color:#e4e7e5;background:#fafbf9}
+html[data-theme="minimal"] .option-heading,html[data-theme="minimal"] .option-heading small{color:#737d77}
+html[data-theme="minimal"] .time-wheel{border-color:#d8ded9;background:#fff;box-shadow:none}html[data-theme="minimal"] .time-wheel-toolbar{border-color:#e3e7e4}
+html[data-theme="minimal"] .time-wheel .no-deadline{color:#59645e;border-color:#d3d9d5;background:#fafbfa}html[data-theme="minimal"] .time-wheel .no-deadline.selected{color:#fff;border-color:#202521;background:#202521;box-shadow:none}
+html[data-theme="minimal"] .time-wheel output{color:#245f53;text-shadow:none}html[data-theme="minimal"] .wheel-group>span,html[data-theme="minimal"] .wheel-group>span::after{color:#747e78}
+html[data-theme="minimal"] .wheel-stage>b{color:#3e4a44;text-shadow:none}html[data-theme="minimal"] .time-wheel .wheel-item{color:#a0a8a3}html[data-theme="minimal"] .time-wheel .wheel-item.selected{color:#202521;text-shadow:none}
+html[data-theme="minimal"] .wheel-selection{border-color:#83918a;background:#f0f3f1;box-shadow:none}
+html[data-theme="minimal"] .priority-option,html[data-theme="minimal"] .task-form .priority-option{color:#65706a;border-color:#d5dad7;background:#fff}html[data-theme="minimal"] .task-form .priority-option.selected{color:#fff;border-color:#202521;background:#202521;box-shadow:none}
+html[data-theme="minimal"] .task-item{border-color:#e0e4e1;background:#fff;box-shadow:none}html[data-theme="minimal"] .task-item:hover,html[data-theme="minimal"] .task-item:focus-visible{border-color:#8b9690;background:#fbfcfb;box-shadow:0 5px 18px rgba(35,43,38,.07)}
+html[data-theme="minimal"] .task-copy strong{color:#202521}html[data-theme="minimal"] .task-copy span{color:#88918c}html[data-theme="minimal"] .task-meta span{border-color:#dce1de;color:#69746e}
+html[data-theme="minimal"] .check-button{border-color:#aab2ad}html[data-theme="minimal"] .completed .check-button{color:#fff;background:#202521;border-color:#202521}
+html[data-theme="minimal"] .task-actions .delete{color:#b43856;border-color:#e4a9b7;background:#fff;box-shadow:none}
+html[data-theme="minimal"] .history-day,html[data-theme="minimal"] .history-task{color:#4e5953;border-color:#dfe4e0;background:#fafbfa}
+html[data-theme="minimal"] .empty-state,html[data-theme="minimal"] .empty-state strong,html[data-theme="minimal"] .empty-state span{color:#828c86}
+html[data-theme="minimal"] dialog{color:#202521;border-color:#d4dad6;background:#fff;box-shadow:0 25px 80px rgba(20,27,23,.2)}html[data-theme="minimal"] dialog::backdrop{background:rgba(238,241,239,.82)}
+html[data-theme="minimal"] dialog label{color:#69736d}html[data-theme="minimal"] dialog input,html[data-theme="minimal"] .settings-dialog select{color:#202521;border-color:#d4dad6;background:#fff}html[data-theme="minimal"] .dialog-actions button{color:#303833;border-color:#d5dad7;background:#f7f8f7}html[data-theme="minimal"] .dialog-actions button[type="submit"]{color:#fff;border-color:#202521;background:#202521}
+html[data-theme="minimal"] .auth-gate{background:rgba(246,247,245,.9)}html[data-theme="minimal"] .auth-card>p,html[data-theme="minimal"] .auth-card label,html[data-theme="minimal"] .auth-switch{color:#67716b}html[data-theme="minimal"] .auth-card input{color:#202521;border-color:#d4dad6;background:#fff}html[data-theme="minimal"] .auth-card form button{color:#fff;background:#202521}
+html[data-theme="minimal"] .switch-row{border-color:#dde2de;background:#fafbfa}html[data-theme="minimal"] .switch-row strong{color:#202521}
+@media(max-width:560px){.theme-toggle{min-width:58px;padding:0 8px}.theme-toggle span{font-size:10px}}
