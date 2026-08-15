@@ -202,3 +202,11 @@ html[data-theme="minimal"] .auth-card{background:rgba(255,254,249,.9)}
 @keyframes shanshuiMist{0%{transform:translate3d(-3%,1%,0) scale(1)}100%{transform:translate3d(5%,-2%,0) scale(1.08)}}
 @media(max-width:560px){html[data-theme="minimal"] body{background-image:none}html[data-theme="minimal"] .cyber-flow{display:block;inset:0;filter:none;background:linear-gradient(rgba(249,247,240,.14),rgba(238,235,224,.22)),url("assets/shanshui-mist.jpg") 42% center/cover no-repeat}html[data-theme="minimal"] .cyber-flow>*{display:none}html[data-theme="minimal"] body::before{opacity:.72;filter:blur(18px)}html[data-theme="minimal"] .panel{background:linear-gradient(145deg,rgba(255,254,249,.88),rgba(245,244,236,.82));backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px)}}
 @media(prefers-reduced-motion:reduce){html[data-theme="minimal"] body::before{animation:none!important}}
+
+/* Keep Safari's native time control inside the account dialog. */
+.settings-dialog{max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px);overflow-x:hidden;overflow-y:auto}
+.settings-dialog form,.settings-grid,.settings-grid>div{min-width:0;max-width:100%}
+.settings-dialog input,.settings-dialog select{display:block;min-width:0;max-width:100%}
+.settings-dialog input[type="time"]{width:100%;min-inline-size:0;max-inline-size:100%;font-size:16px}
+.settings-dialog input[type="time"]::-webkit-date-and-time-value{min-width:0;text-align:center}
+@media(max-width:560px){.settings-dialog{width:calc(100% - 24px)}.settings-grid{width:100%}.settings-grid>div{width:100%;overflow:hidden}}
