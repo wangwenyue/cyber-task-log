@@ -7,10 +7,8 @@ const PRIORITIES = {
   normal: { label: '普通', weight: 0 }, important: { label: '重要', weight: 1 },
   urgent: { label: '紧急', weight: 2 }, critical: { label: '立即处理', weight: 3 },
 };
-const TIME_OPTIONS = [null, ...Array.from({ length: 33 }, (_, index) => {
-  const totalMinutes = 7 * 60 + index * 30;
-  return `${String(Math.floor(totalMinutes / 60)).padStart(2, '0')}:${String(totalMinutes % 60).padStart(2, '0')}`;
-})];
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, '0'));
+const MINUTE_OPTIONS = Array.from({ length: 12 }, (_, index) => String(index * 5).padStart(2, '0'));
 
 const state = {
   tasks: [], user: null, selectedDate: toDateKey(new Date()), calendarDate: startOfMonth(new Date()),
@@ -78,9 +76,50 @@ function loadCache() {
 function saveCache() { if (state.user) localStorage.setItem(cacheKey(), JSON.stringify(state.tasks)); }
 
 function renderTimePicker(container, selected = null) {
-  container.dataset.value = selected || '';
-  container.innerHTML = TIME_OPTIONS.map((time) => `<button class="time-option${time === selected ? ' selected' : ''}" data-value="${time || ''}" type="button" role="radio" aria-checked="${time === selected}">${time || '无截止'}</button>`).join('');
-  requestAnimationFrame(() => container.querySelector('.selected')?.scrollIntoView({ inline: 'center', block: 'nearest' }));
+  const [hour = '09', rawMinute = '00'] = selected?.slice(0, 5).split(':') || [];
+  const minute = MINUTE_OPTIONS.reduce((closest, value) => Math.abs(Number(value) - Number(rawMinute)) < Math.abs(Number(closest) - Number(rawMinute)) ? value : closest, '00');
+  const column = (unit, label, options, value) => `<div class="wheel-group"><span>${label}</span><div class="wheel-column" data-unit="${unit}" role="listbox" aria-label="${label}"><i class="wheel-spacer"></i>${options.map((option, index) => `<button class="wheel-item${option === value ? ' selected' : ''}" data-value="${option}" data-index="${index}" type="button" role="option" aria-selected="${option === value}">${option}</button>`).join('')}<i class="wheel-spacer"></i></div></div>`;
+  container.dataset.value = selected ? `${hour}:${minute}` : '';
+  container.dataset.ready = 'false';
+  container.innerHTML = `<div class="time-wheel-toolbar"><button class="no-deadline${selected ? '' : ' selected'}" data-action="clear-time" type="button">无截止时间</button><output>${selected ? `${hour}:${minute}` : '未设置'}</output></div><div class="wheel-stage"><div class="wheel-selection" aria-hidden="true"></div>${column('hour', '小时', HOUR_OPTIONS, hour)}<b>:</b>${column('minute', '分钟', MINUTE_OPTIONS, minute)}</div>`;
+  container.classList.toggle('has-time', Boolean(selected));
+  requestAnimationFrame(() => {
+    container.querySelectorAll('.wheel-column').forEach((wheel) => {
+      const target = wheel.querySelector('.wheel-item.selected');
+      wheel.scrollTop = Number(target?.dataset.index || 0) * (target?.offsetHeight || 46);
+    });
+    setTimeout(() => { container.dataset.ready = 'true'; }, 140);
+  });
+}
+
+function updateTimeWheel(container, activate = true) {
+  const selected = {};
+  container.querySelectorAll('.wheel-column').forEach((wheel) => {
+    const items = [...wheel.querySelectorAll('.wheel-item')];
+    const height = items[0]?.offsetHeight || 46;
+    const item = items[Math.max(0, Math.min(items.length - 1, Math.round(wheel.scrollTop / height)))];
+    selected[wheel.dataset.unit] = item?.dataset.value || '00';
+    items.forEach((option) => { const active = option === item; option.classList.toggle('selected', active); option.setAttribute('aria-selected', String(active)); });
+  });
+  const value = `${selected.hour || '00'}:${selected.minute || '00'}`;
+  container.dataset.value = activate ? value : '';
+  container.classList.toggle('has-time', activate);
+  container.querySelector('.no-deadline')?.classList.toggle('selected', !activate);
+  container.querySelector('output').textContent = activate ? value : '未设置';
+}
+
+function bindTimeWheel(container) {
+  container.addEventListener('click', (event) => {
+    if (event.target.closest('[data-action="clear-time"]')) { updateTimeWheel(container, false); return; }
+    const item = event.target.closest('.wheel-item'); if (!item) return;
+    const wheel = item.closest('.wheel-column');
+    wheel.scrollTo({ top: Number(item.dataset.index) * item.offsetHeight, behavior: 'smooth' });
+  });
+  container.addEventListener('scroll', (event) => {
+    const wheel = event.target.closest?.('.wheel-column'); if (!wheel || container.dataset.ready !== 'true') return;
+    clearTimeout(wheel._selectTimer);
+    wheel._selectTimer = setTimeout(() => updateTimeWheel(container, true), 90);
+  }, true);
 }
 
 function renderPriorityPicker(container, selected = 'normal') {
@@ -223,8 +262,8 @@ async function deleteTask(id) {
 function openEdit(id) {
   const task = state.tasks.find((item) => item.id === id); if (!task) return;
   state.editingId = id; elements.editInput.value = task.title;
-  renderTimePicker(elements.editTimeScroll, task.dueTime); renderPriorityPicker(elements.editPriorityPicker, task.priority);
-  elements.editDialog.showModal(); requestAnimationFrame(() => elements.editInput.select());
+  elements.editDialog.showModal(); renderTimePicker(elements.editTimeScroll, task.dueTime); renderPriorityPicker(elements.editPriorityPicker, task.priority);
+  requestAnimationFrame(() => elements.editInput.select());
 }
 function showToast(message) {
   elements.toast.textContent = message; elements.toast.classList.add('show');
@@ -337,6 +376,6 @@ elements.editForm.addEventListener('submit', async (event) => {
 
 document.addEventListener('visibilitychange', () => { if (!document.hidden && state.user) loadCloudTasks({ quiet: true }); });
 supabaseClient.auth.onAuthStateChange((_event, session) => { setTimeout(() => handleSession(session), 0); });
-bindPicker(elements.createTimeScroll); bindPicker(elements.createPriorityPicker); bindPicker(elements.editTimeScroll); bindPicker(elements.editPriorityPicker);
+bindTimeWheel(elements.createTimeScroll); bindPicker(elements.createPriorityPicker); bindTimeWheel(elements.editTimeScroll); bindPicker(elements.editPriorityPicker);
 renderTimePicker(elements.createTimeScroll); renderPriorityPicker(elements.createPriorityPicker);
 updateAuthUI(); render();

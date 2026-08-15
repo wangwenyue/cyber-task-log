@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#080b12">
   <title>NEON LOG // 每日任务终端</title>
-  <link rel="stylesheet" href="styles.css?v=4.3">
+  <link rel="stylesheet" href="styles.css?v=5.0">
 </head>
 <body>
   <div class="cyber-flow" aria-hidden="true">
@@ -72,8 +72,8 @@
             <button type="submit">添加任务 <span>↵</span></button>
           </div>
           <div class="task-options">
-            <div class="option-heading"><span>截止时间</span><small>横向滑动选择</small></div>
-            <div class="time-scroll" id="createTimeScroll" role="radiogroup" aria-label="任务截止时间"></div>
+            <div class="option-heading"><span>截止时间</span><small>上下滑动小时与分钟</small></div>
+            <div class="time-wheel" id="createTimeScroll" aria-label="任务截止时间"></div>
             <div class="option-heading"><span>紧急程度</span></div>
             <div class="priority-picker" id="createPriorityPicker" role="radiogroup" aria-label="任务紧急程度"></div>
           </div>
@@ -102,7 +102,7 @@
       <div class="history-list" id="historyList"></div>
     </section>
 
-    <footer><span>NEON LOG v4.3</span><span id="footerStatus">SUPABASE CLOUD SYNC</span></footer>
+    <footer><span>NEON LOG v5.0</span><span id="footerStatus">SUPABASE CLOUD SYNC</span></footer>
   </main>
 
   <section class="auth-gate" id="authGate" aria-labelledby="authTitle">
@@ -130,8 +130,8 @@
       <label for="editInput">任务内容</label>
       <input id="editInput" maxlength="120" required>
       <div class="editor-section">
-        <div class="option-heading"><span>截止时间</span><small>横向滑动选择</small></div>
-        <div class="time-scroll" id="editTimeScroll" role="radiogroup" aria-label="修改截止时间"></div>
+        <div class="option-heading"><span>截止时间</span><small>上下滑动小时与分钟</small></div>
+        <div class="time-wheel" id="editTimeScroll" aria-label="修改截止时间"></div>
       </div>
       <div class="editor-section">
         <div class="option-heading"><span>紧急程度</span></div>
@@ -171,6 +171,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js?v=4.3"></script>
+  <script src="app.js?v=5.0"></script>
 </body>
 </html>
