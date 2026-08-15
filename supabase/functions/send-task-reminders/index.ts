@@ -71,7 +71,7 @@ Deno.serve(async (request) => {
     catch { results.push({ userId: setting.user_id, status: 'invalid_timezone' }); continue }
 
     const isTest = Boolean(testUserId)
-    if (!isTest && (clock.time < setting.reminder_time.slice(0, 5) || setting.last_sent_on === clock.date)) continue
+    if (!isTest && (clock.time !== setting.reminder_time.slice(0, 5) || setting.last_sent_on === clock.date)) continue
 
     const { data: tasks, error: taskError } = await admin.from('tasks')
       .select('title').eq('user_id', setting.user_id).eq('task_date', clock.date).eq('completed', false).order('created_at')
