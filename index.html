@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080b12">
+  <title>NEON LOG // 每日任务终端</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="noise" aria-hidden="true"></div>
+  <div class="scanline" aria-hidden="true"></div>
+
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="返回今天">
+        <span class="brand-mark">NL</span>
+        <span><strong>NEON LOG</strong><small>PERSONAL WORK TERMINAL</small></span>
+      </a>
+      <div class="system-status"><i></i> LOCAL SYSTEM ONLINE</div>
+      <button class="today-button" id="todayButton" type="button">回到今天</button>
+    </header>
+
+    <section class="dashboard">
+      <aside class="calendar-panel panel">
+        <div class="panel-label">DATE NAVIGATOR</div>
+        <div class="calendar-heading">
+          <div><strong id="calendarMonth"></strong><span id="calendarYear"></span></div>
+          <div class="calendar-nav">
+            <button id="previousMonth" type="button" aria-label="上个月">←</button>
+            <button id="nextMonth" type="button" aria-label="下个月">→</button>
+          </div>
+        </div>
+        <div class="weekdays" aria-hidden="true">
+          <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+        </div>
+        <div class="calendar-grid" id="calendarGrid"></div>
+        <div class="calendar-legend">
+          <span><i class="dot has-task"></i>有任务</span>
+          <span><i class="dot completed"></i>已完成</span>
+        </div>
+      </aside>
+
+      <section class="task-panel panel">
+        <div class="task-heading">
+          <div>
+            <div class="panel-label">DAILY OPERATIONS</div>
+            <h1 id="selectedDateTitle"></h1>
+            <p id="selectedDateMeta"></p>
+          </div>
+          <div class="progress-ring" id="progressRing" aria-label="今日任务完成度">
+            <span id="progressValue">0%</span>
+          </div>
+        </div>
+
+        <form class="task-form" id="taskForm">
+          <label class="sr-only" for="taskInput">添加新任务</label>
+          <span class="prompt">&gt;_</span>
+          <input id="taskInput" maxlength="120" autocomplete="off" placeholder="输入新的工作任务..." required>
+          <button type="submit">添加任务 <span>↵</span></button>
+        </form>
+
+        <div class="task-toolbar">
+          <span id="activeCount">0 项待执行</span>
+          <button id="showCompletedButton" type="button" aria-pressed="false">显示已完成</button>
+        </div>
+        <div class="task-list" id="taskList"></div>
+      </section>
+    </section>
+
+    <section class="history-panel panel">
+      <div class="history-heading">
+        <div>
+          <div class="panel-label">30 DAY ARCHIVE</div>
+          <h2>最近一个月，我完成了什么</h2>
+        </div>
+        <div class="stats">
+          <div><strong id="completedStat">0</strong><span>完成任务</span></div>
+          <div><strong id="activeDaysStat">0</strong><span>活跃天数</span></div>
+          <div><strong id="completionStat">0%</strong><span>完成率</span></div>
+        </div>
+      </div>
+      <div class="history-list" id="historyList"></div>
+    </section>
+
+    <footer><span>NEON LOG v1.0</span><span>数据仅保存在当前浏览器</span></footer>
+  </main>
+
+  <dialog id="editDialog">
+    <form method="dialog" id="editForm">
+      <div class="panel-label">EDIT OPERATION</div>
+      <h2>修改任务</h2>
+      <label for="editInput">任务内容</label>
+      <input id="editInput" maxlength="120" required>
+      <div class="dialog-actions">
+        <button value="cancel" type="button" id="cancelEdit">取消</button>
+        <button value="save" type="submit">保存修改</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>
