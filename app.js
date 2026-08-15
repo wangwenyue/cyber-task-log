@@ -31,7 +31,8 @@ const elements = {
   emailInput: document.querySelector('#emailInput'), passwordInput: document.querySelector('#passwordInput'),
   authSubmit: document.querySelector('#authSubmit'), authSwitch: document.querySelector('#authSwitch'),
   authTitle: document.querySelector('#authTitle'), authDescription: document.querySelector('#authDescription'),
-  authMessage: document.querySelector('#authMessage'), accountButton: document.querySelector('#accountButton'),
+  authMessage: document.querySelector('#authMessage'), authClose: document.querySelector('#authClose'),
+  accountButton: document.querySelector('#accountButton'),
   accountEmail: document.querySelector('#accountEmail'), systemStatus: document.querySelector('#systemStatus'),
   footerStatus: document.querySelector('#footerStatus'),
   themeToggle: document.querySelector('#themeToggle'), themeColor: document.querySelector('meta[name="theme-color"]'),
@@ -85,7 +86,8 @@ function loadCache() {
   try { const value = JSON.parse(localStorage.getItem(cacheKey())); return Array.isArray(value) ? value.map((task) => ({ ...task, dueTime: task.dueTime || null, priority: task.priority || 'normal' })) : []; }
   catch { return []; }
 }
-function saveCache() { if (state.user) localStorage.setItem(cacheKey(), JSON.stringify(state.tasks)); }
+function saveCache() { try { localStorage.setItem(cacheKey(), JSON.stringify(state.tasks)); } catch {} }
+function createLocalId() { return `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`; }
 
 function renderTimePicker(container, selected = null) {
   const [hour = '09', rawMinute = '00'] = selected?.slice(0, 5).split(':') || [];
@@ -149,7 +151,10 @@ function bindPicker(container) {
 }
 
 async function loadCloudTasks({ quiet = false } = {}) {
-  if (!state.user) return;
+  if (!state.user) {
+    state.tasks = loadCache(); render(); setSyncStatus('', 'LOCAL MODE // 未登录，数据仅保存在本机');
+    return;
+  }
   if (!quiet) setSyncStatus('syncing', 'SYNCING CLOUD DATA');
   const { data, error } = await supabaseClient.from('tasks').select('*').order('created_at', { ascending: false });
   if (error) {
@@ -249,6 +254,14 @@ function selectDate(key) {
 }
 
 async function addTask(title, dueTime, priority) {
+  if (!state.user) {
+    state.tasks.unshift({
+      id: createLocalId(), title: title.trim(), date: state.selectedDate, completed: false,
+      dueTime: dueTime || null, priority, createdAt: Date.now(), completedAt: null,
+    });
+    saveCache(); render(); setSyncStatus('', 'LOCAL MODE // 未登录，数据仅保存在本机'); showToast('任务已保存到本地');
+    return true;
+  }
   setSyncStatus('syncing', 'WRITING TO CLOUD');
   const { data, error } = await supabaseClient.from('tasks').insert({ user_id: state.user.id, title: title.trim(), task_date: state.selectedDate, due_time: dueTime || null, priority }).select().single();
   if (error) { setSyncStatus('error', 'SYNC FAILED'); showToast(`添加失败：${error.message}`); return false; }
@@ -258,6 +271,12 @@ async function addTask(title, dueTime, priority) {
 async function toggleTask(id) {
   const task = state.tasks.find((item) => item.id === id); if (!task) return;
   const nextCompleted = !task.completed, completedAt = nextCompleted ? new Date().toISOString() : null;
+  if (!state.user) {
+    task.completed = nextCompleted; task.completedAt = completedAt ? new Date(completedAt).getTime() : null;
+    saveCache(); render();
+    showToast(nextCompleted ? '任务完成，已保存到本地' : '任务已恢复，保存在本地');
+    return;
+  }
   const { data, error } = await supabaseClient.from('tasks').update({ completed: nextCompleted, completed_at: completedAt, updated_at: new Date().toISOString() }).eq('id', id).select().single();
   if (error) { showToast(`更新失败：${error.message}`); return; }
   Object.assign(task, mapTask(data)); saveCache(); render(); if (task.completed) showToast('任务完成，已同步到档案');
@@ -266,6 +285,10 @@ async function toggleTask(id) {
 async function deleteTask(id) {
   const task = state.tasks.find((item) => item.id === id);
   if (!task || !confirm(`确定删除“${task.title}”吗？此操作无法撤销。`)) return;
+  if (!state.user) {
+    state.tasks = state.tasks.filter((item) => item.id !== id); saveCache(); render(); showToast('任务已从本地删除');
+    return;
+  }
   const { error } = await supabaseClient.from('tasks').delete().eq('id', id);
   if (error) { showToast(`删除失败：${error.message}`); return; }
   state.tasks = state.tasks.filter((item) => item.id !== id); saveCache(); render(); showToast('任务已从云端删除');
@@ -336,10 +359,20 @@ function updateAuthUI() {
 
 async function handleSession(session) {
   state.user = session?.user || null;
-  elements.authGate.hidden = Boolean(state.user); elements.accountButton.hidden = !state.user;
-  if (!state.user) { state.tasks = []; setSyncStatus('', 'CLOUD LINK STANDBY'); render(); return; }
+  elements.authGate.hidden = true;
+  elements.accountButton.hidden = false;
+  elements.accountButton.querySelector('b').textContent = state.user ? '设置' : '登录';
+  elements.accountButton.title = state.user ? '账号与邮件提醒' : '登录后可将任务同步到云端';
+  if (!state.user) {
+    elements.accountEmail.textContent = '未登录 · 本地模式';
+    state.tasks = loadCache(); render(); setSyncStatus('', 'LOCAL MODE // 未登录，数据仅保存在本机');
+    return;
+  }
   elements.accountEmail.textContent = state.user.email; await migrateLegacyTasks(); await loadCloudTasks();
 }
+
+function openAuthGate() { elements.authGate.hidden = false; elements.authMessage.textContent = ''; requestAnimationFrame(() => elements.emailInput.focus()); }
+function closeAuthGate() { elements.authGate.hidden = true; }
 
 elements.authForm.addEventListener('submit', async (event) => {
   event.preventDefault(); elements.authSubmit.disabled = true; elements.authMessage.textContent = '正在建立安全连接...';
@@ -352,14 +385,15 @@ elements.authForm.addEventListener('submit', async (event) => {
   if (state.authMode === 'register' && !result.data.session) elements.authMessage.textContent = '注册成功，请检查邮箱并点击确认链接。';
 });
 elements.authSwitch.addEventListener('click', () => { state.authMode = state.authMode === 'login' ? 'register' : 'login'; updateAuthUI(); });
-elements.accountButton.addEventListener('click', openReminderSettings);
+elements.accountButton.addEventListener('click', () => { if (state.user) openReminderSettings(); else openAuthGate(); });
+elements.authClose.addEventListener('click', closeAuthGate);
 elements.themeToggle.addEventListener('click', () => applyTheme(document.documentElement.dataset.theme === 'cyber' ? 'minimal' : 'cyber'));
 elements.closeReminder.addEventListener('click', () => elements.reminderDialog.close());
 elements.reminderForm.addEventListener('submit', async (event) => { event.preventDefault(); if (await saveReminderSettings()) elements.reminderDialog.close(); });
 elements.testEmailButton.addEventListener('click', sendTestEmail);
 elements.signOutButton.addEventListener('click', async () => { elements.reminderDialog.close(); await supabaseClient.auth.signOut(); showToast('已安全退出云端终端'); });
 elements.taskForm.addEventListener('submit', async (event) => {
-  event.preventDefault(); const title = elements.taskInput.value.trim(); if (!title || !state.user) return;
+  event.preventDefault(); const title = elements.taskInput.value.trim(); if (!title) return;
   elements.taskInput.disabled = true;
   if (await addTask(title, elements.createTimeScroll.dataset.value, elements.createPriorityPicker.dataset.value)) {
     elements.taskInput.value = ''; renderTimePicker(elements.createTimeScroll); renderPriorityPicker(elements.createPriorityPicker);
@@ -386,7 +420,15 @@ document.querySelector('.brand').addEventListener('click', (event) => { event.pr
 document.querySelector('#cancelEdit').addEventListener('click', () => elements.editDialog.close());
 elements.editForm.addEventListener('submit', async (event) => {
   event.preventDefault(); const title = elements.editInput.value.trim(); if (!title) return;
-  const { data, error } = await supabaseClient.from('tasks').update({ title, due_time: elements.editTimeScroll.dataset.value || null, priority: elements.editPriorityPicker.dataset.value, updated_at: new Date().toISOString() }).eq('id', state.editingId).select().single();
+  const dueTime = elements.editTimeScroll.dataset.value || null;
+  const priority = elements.editPriorityPicker.dataset.value;
+  if (!state.user) {
+    const index = state.tasks.findIndex((task) => task.id === state.editingId);
+    if (index >= 0) state.tasks[index] = { ...state.tasks[index], title, dueTime, priority };
+    saveCache(); elements.editDialog.close(); render(); showToast('修改已保存到本地');
+    return;
+  }
+  const { data, error } = await supabaseClient.from('tasks').update({ title, due_time: dueTime, priority, updated_at: new Date().toISOString() }).eq('id', state.editingId).select().single();
   if (error) { showToast(`修改失败：${error.message}`); return; }
   const index = state.tasks.findIndex((task) => task.id === state.editingId); if (index >= 0) state.tasks[index] = mapTask(data);
   saveCache(); elements.editDialog.close(); render(); showToast('修改已同步');
@@ -396,4 +438,4 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && st
 supabaseClient.auth.onAuthStateChange((_event, session) => { setTimeout(() => handleSession(session), 0); });
 bindTimeWheel(elements.createTimeScroll); bindPicker(elements.createPriorityPicker); bindTimeWheel(elements.editTimeScroll); bindPicker(elements.editPriorityPicker);
 renderTimePicker(elements.createTimeScroll); renderPriorityPicker(elements.createPriorityPicker); applyTheme(document.documentElement.dataset.theme);
-updateAuthUI(); render();
+updateAuthUI(); handleSession(null);

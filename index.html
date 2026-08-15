@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#080b12">
   <title>NEON LOG // 每日任务终端</title>
   <script>try{const t=localStorage.getItem('neon-log-theme');document.documentElement.dataset.theme=t==='minimal'?'minimal':'cyber'}catch{document.documentElement.dataset.theme='cyber'}</script>
-  <link rel="stylesheet" href="styles.css?v=6.2">
+  <link rel="stylesheet" href="styles.css?v=6.4">
 </head>
 <body>
   <div class="cyber-flow" aria-hidden="true">
@@ -104,12 +104,13 @@
       <div class="history-list" id="historyList"></div>
     </section>
 
-    <footer><span>NEON LOG v6.2</span><span id="footerStatus">SUPABASE CLOUD SYNC</span></footer>
+    <footer><span>NEON LOG v6.4</span><span id="footerStatus">SUPABASE CLOUD SYNC</span></footer>
   </main>
 
-  <section class="auth-gate" id="authGate" aria-labelledby="authTitle">
+  <section class="auth-gate" id="authGate" aria-labelledby="authTitle" hidden>
     <div class="auth-card panel">
       <div class="auth-brand"><span class="brand-mark">NL</span><div><strong>IDENTITY REQUIRED</strong><small>SECURE CLOUD ACCESS</small></div></div>
+      <button class="auth-close" id="authClose" type="button" aria-label="关闭登录">×</button>
       <div class="panel-label">SUPABASE AUTH TERMINAL</div>
       <h2 id="authTitle">连接你的工作档案</h2>
       <p id="authDescription">登录后，任务将在电脑和手机之间同步。</p>
@@ -173,6 +174,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="app.js?v=6.2"></script>
+  <script src="app.js?v=6.4"></script>
 </body>
 </html>
