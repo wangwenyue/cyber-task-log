@@ -46,3 +46,20 @@ html,body{width:100%;max-width:100%;overflow-x:hidden;overscroll-behavior-x:none
   .history-date strong{font-size:14px}.history-date span,.history-task,.history-count{font-size:13px}
   dialog label{font-size:14px}dialog input{font-size:17px}.dialog-actions button{font-size:15px;padding:11px 17px}
 }
+
+/* Animated cyberpunk environment */
+body{position:relative;background:#05070c}
+.cyber-flow{position:fixed;inset:-12vmax;z-index:0;overflow:hidden;pointer-events:none;background:radial-gradient(circle at 50% 45%,#0b1720 0,#060a11 38%,#04060a 75%);isolation:isolate}
+.flow-aurora{position:absolute;width:72vmax;height:72vmax;border-radius:42% 58% 64% 36%;filter:blur(60px);will-change:transform;mix-blend-mode:screen}
+.flow-aurora-a{left:-18vmax;top:-24vmax;background:conic-gradient(from 40deg,transparent 0 18%,rgba(29,241,219,.24) 27%,rgba(0,126,255,.16) 38%,transparent 53% 100%);animation:auroraDriftA 24s ease-in-out infinite alternate}
+.flow-aurora-b{right:-24vmax;bottom:-28vmax;background:conic-gradient(from 210deg,transparent 0 20%,rgba(255,42,151,.18) 31%,rgba(100,45,255,.16) 44%,transparent 59% 100%);animation:auroraDriftB 29s ease-in-out infinite alternate}
+.flow-grid{position:absolute;inset:0;opacity:.18;background-image:linear-gradient(rgba(91,245,223,.15) 1px,transparent 1px),linear-gradient(90deg,rgba(91,245,223,.12) 1px,transparent 1px);background-size:72px 72px;transform:perspective(540px) rotateX(60deg) scale(1.35) translateY(12%);transform-origin:center 75%;mask-image:linear-gradient(to bottom,transparent 8%,rgba(0,0,0,.7) 45%,#000 100%);animation:gridFlow 10s linear infinite}
+.flow-streams{position:absolute;inset:0;opacity:.32;background:repeating-linear-gradient(112deg,transparent 0 13%,rgba(91,245,223,.12) 13.15%,transparent 13.4% 25%),repeating-linear-gradient(72deg,transparent 0 18%,rgba(255,79,163,.08) 18.15%,transparent 18.4% 34%);background-size:180% 180%;filter:blur(.5px);animation:streamFlow 18s linear infinite}
+.noise{z-index:1}.scanline{z-index:3}.shell{position:relative;z-index:2}
+.panel{background:linear-gradient(145deg,rgba(17,23,34,.91),rgba(7,11,18,.93));backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+@keyframes auroraDriftA{0%{transform:translate3d(-4%,-3%,0) rotate(0deg) scale(.92)}50%{transform:translate3d(22%,14%,0) rotate(95deg) scale(1.14)}100%{transform:translate3d(8%,32%,0) rotate(185deg) scale(.98)}}
+@keyframes auroraDriftB{0%{transform:translate3d(3%,8%,0) rotate(0deg) scale(1)}50%{transform:translate3d(-22%,-18%,0) rotate(-105deg) scale(1.16)}100%{transform:translate3d(-8%,-34%,0) rotate(-190deg) scale(.94)}}
+@keyframes gridFlow{from{background-position:0 0,0 0}to{background-position:0 72px,72px 0}}
+@keyframes streamFlow{from{background-position:0 0,0 0}to{background-position:90% 120%,110% -80%}}
+@media(max-width:560px){.flow-aurora{filter:blur(48px);opacity:.72}.flow-grid{opacity:.1;background-size:54px 54px;animation-duration:14s}.flow-streams{opacity:.18;animation-duration:24s}.panel{backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}}
+@media(prefers-reduced-motion:reduce){.flow-aurora,.flow-grid,.flow-streams{animation:none!important}.flow-aurora-a{transform:translate3d(12%,10%,0)}.flow-aurora-b{transform:translate3d(-10%,-12%,0)}}
